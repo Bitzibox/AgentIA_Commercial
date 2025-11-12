@@ -49,8 +49,8 @@ export function ChatInterface() {
     setIsLoading(true)
 
     try {
-      // <CHANGE> Call the AI API endpoint
-      const response = await fetch("/api/chat", {
+      // ✨ MODIFICATION : Appel au workflow n8n au lieu de /api/chat
+      const response = await fetch("https://n8n.bitzibox.fr/webhook/6SkajuRCEV9yxV1b", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -60,29 +60,32 @@ export function ChatInterface() {
             role: m.role,
             content: m.content,
           })),
+          context: "commercial_copilot",
+          timestamp: new Date().toISOString(),
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to get response")
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
 
+      // Adapter la réponse selon le format retourné par n8n
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.message.content,
+        content: data.response || data.message?.content || data.content || "Pas de réponse",
         timestamp: new Date(),
       }
       
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
-      console.error("[v0] Chat error:", error)
+      console.error("[n8n] Chat error:", error)
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I apologize, but I encountered an error processing your request. Please try again.",
+        content: "Désolé, j'ai rencontré une erreur en communiquant avec le serveur n8n. Veuillez réessayer.",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
@@ -142,8 +145,53 @@ export function ChatInterface() {
                     : "bg-accent text-accent-foreground"
                 )}
               >
-                <p className="text-sm leading-relaxed">{message.content}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                 <span className="text-xs opacity-50">
                   {message.timestamp.toLocaleTimeString([], { 
                     hour: "2-digit", 
-                   
+                    minute: "2-digit" 
+                  })}
+                </span>
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex gap-3">
+              <Avatar className="size-8 shrink-0">
+                <AvatarFallback className="bg-accent text-accent-foreground">
+                  <Bot className="size-4" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3">
+                <Loader2 className="size-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Thinking...</span>
+              </div>
+            </div>
+          )}
+          <div ref={scrollRef} />
+        </div>
+      </ScrollArea>
+
+      {/* Input Area */}
+      <div className="border-t border-border bg-card p-4">
+        <div className="mx-auto max-w-3xl flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Ask me about sales, leads, or pipeline..."
+            disabled={isLoading}
+            className="flex-1"
+          />
+          <Button 
+            onClick={handleSend} 
+            disabled={isLoading || !input.trim()}
+            size="icon"
+          >
+            <Send className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
