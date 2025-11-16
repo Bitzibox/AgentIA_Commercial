@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Base de données CRM
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentia_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agentia
+      POSTGRES_PASSWORD: agentia_secure_2024
+      POSTGRES_DB: agentia_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ChromaDB - Vector database pour RAG
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: agentia_chromadb
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - ALLOW_RESET=TRUE
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis - Cache et sessions
+  redis:
+    image: redis:7-alpine
+    container_name: agentia_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  chroma_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: agentia_network

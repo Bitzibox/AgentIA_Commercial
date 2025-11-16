@@ -1,0 +1,292 @@
+// Schéma CRM pour AgentIA Commercial
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// UTILISATEURS ET ENTREPRISES
+// ========================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("user") // user, admin
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Relations
+  conversations Conversation[]
+  activities    Activity[]
+  tasks         Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([email])
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  industry    String?
+  size        String?  // TPE, PME, ETI
+  website     String?
+  description String?  @db.Text
+
+  // Configuration
+  settings    Json?    // Settings personnalisés
+
+  // Relations
+  users       User[]
+  contacts    Contact[]
+  deals       Deal[]
+  activities  Activity[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+}
+
+// ========================================
+// CRM - CONTACTS ET ENTREPRISES CLIENTES
+// ========================================
+
+model Contact {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Informations de base
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  position    String?  // Poste dans l'entreprise
+
+  // Entreprise du contact
+  companyName String?
+
+  // Qualification
+  status      String   @default("lead") // lead, prospect, customer, lost
+  source      String?  // website, referral, cold_call, linkedin, etc.
+  score       Int      @default(0) // Score de qualification (0-100)
+
+  // Informations complémentaires
+  notes       String?  @db.Text
+  tags        String[] // Tags personnalisés
+
+  // Relations
+  deals       Deal[]
+  activities  Activity[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([email])
+  @@index([status])
+  @@index([score])
+}
+
+// ========================================
+// PIPELINE - DEALS/OPPORTUNITÉS
+// ========================================
+
+model Deal {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  // Informations de base
+  title       String
+  description String?  @db.Text
+  value       Float    // Valeur en euros
+  currency    String   @default("EUR")
+
+  // Pipeline
+  stage       String   @default("discovery") // discovery, qualification, proposal, negotiation, closed_won, closed_lost
+  probability Int      @default(10) // Probabilité de closing (0-100)
+
+  // Dates importantes
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+
+  // Informations complémentaires
+  lostReason  String?  // Raison si perdu
+  notes       String?  @db.Text
+  tags        String[]
+
+  // Relations
+  activities  Activity[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([stage])
+  @@index([expectedCloseDate])
+}
+
+// ========================================
+// ACTIVITÉS ET HISTORIQUE
+// ========================================
+
+model Activity {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Type d'activité
+  type        String   // call, email, meeting, note, task_completed, deal_stage_changed, etc.
+
+  // Liens optionnels
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  // Contenu
+  subject     String?
+  description String?  @db.Text
+  outcome     String?  // positive, negative, neutral
+
+  // Date
+  occurredAt  DateTime @default(now())
+
+  // Metadata
+  metadata    Json?    // Données supplémentaires (email content, call duration, etc.)
+
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([type])
+  @@index([occurredAt])
+}
+
+// ========================================
+// TÂCHES ET RAPPELS
+// ========================================
+
+model Task {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Informations de base
+  title       String
+  description String?  @db.Text
+
+  // Statut
+  status      String   @default("todo") // todo, in_progress, done, cancelled
+  priority    String   @default("medium") // low, medium, high, urgent
+
+  // Dates
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  // Relations optionnelles
+  contactId   String?
+  dealId      String?
+
+  // Metadata
+  tags        String[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// ========================================
+// CONVERSATIONS AVEC L'IA
+// ========================================
+
+model Conversation {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Informations
+  title       String?   // Titre auto-généré ou défini par l'utilisateur
+
+  // Contexte optionnel
+  contactId   String?
+  dealId      String?
+
+  // Messages
+  messages    Message[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Contenu
+  role           String       // user, assistant, system
+  content        String       @db.Text
+
+  // Metadata
+  agentType      String?      // sales_analyst, email_writer, crm_assistant, coach
+  tokenCount     Int?
+  processingTime Int?         // En millisecondes
+
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+// ========================================
+// ANALYTICS ET MÉTRIQUES
+// ========================================
+
+model Metric {
+  id        String   @id @default(cuid())
+  companyId String
+
+  // Type de métrique
+  type      String   // revenue, leads, conversion_rate, etc.
+
+  // Valeur
+  value     Float
+  unit      String?  // EUR, %, count, etc.
+
+  // Période
+  period    String   // daily, weekly, monthly
+  date      DateTime
+
+  // Metadata
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([type])
+  @@index([date])
+  @@unique([companyId, type, period, date])
+}
