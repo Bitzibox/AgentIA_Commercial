@@ -232,6 +232,7 @@ export default function Home() {
                     businessContext={businessData}
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
+                    disableAutoScroll={true}
                     key={`chat-${activeConversationId}`}
                   />
                 )}
@@ -256,6 +257,7 @@ export default function Home() {
                       businessContext={businessData}
                       conversationId={activeConversationId}
                       onConversationUpdate={handleConversationUpdate}
+                      disableAutoScroll={true}
                       key={`chat-deals-${activeConversationId}`}
                     />
                   )}
@@ -274,6 +276,7 @@ export default function Home() {
                     businessContext={businessData}
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
+                    disableAutoScroll={true}
                     key={`chat-actions-${activeConversationId}`}
                   />
                 )}
