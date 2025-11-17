@@ -251,7 +251,13 @@ export default function Home() {
               </div>
               <div className="space-y-6">
                 <div className="h-[600px]">
-                  <ChatInterface businessContext={businessData} />
+                  {activeConversationId && (
+                    <ChatInterface
+                      businessContext={businessData}
+                      conversationId={activeConversationId}
+                      onConversationUpdate={handleConversationUpdate}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -262,7 +268,13 @@ export default function Home() {
             <div className="grid gap-6 lg:grid-cols-2">
               <ActionItems items={businessData.actionItems} />
               <div className="h-[600px]">
-                <ChatInterface businessContext={businessData} />
+                {activeConversationId && (
+                  <ChatInterface
+                    businessContext={businessData}
+                    conversationId={activeConversationId}
+                    onConversationUpdate={handleConversationUpdate}
+                  />
+                )}
               </div>
             </div>
           </TabsContent>
