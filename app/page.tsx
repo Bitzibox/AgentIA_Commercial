@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { dataManager } from "@/lib/data-manager"
 import { conversationManager } from "@/lib/conversation-manager"
-import { BusinessContext, Deal, BusinessMetrics, Lead, Activity } from "@/types"
+import { BusinessContext, Deal, BusinessMetrics, Lead, Activity, ActionItem } from "@/types"
 import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings } from "lucide-react"
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
@@ -61,8 +61,28 @@ export default function Home() {
     loadData()
   }
 
+  const handleUpdateDeal = (id: string, updates: Partial<Deal>) => {
+    dataManager.updateDeal(id, updates)
+    loadData()
+  }
+
   const handleDeleteDeal = (id: string) => {
     dataManager.deleteDeal(id)
+    loadData()
+  }
+
+  const handleAddAction = (action: Omit<ActionItem, "id">) => {
+    dataManager.addAction(action)
+    loadData()
+  }
+
+  const handleUpdateAction = (id: string, updates: Partial<ActionItem>) => {
+    dataManager.updateAction(id, updates)
+    loadData()
+  }
+
+  const handleDeleteAction = (id: string) => {
+    dataManager.deleteAction(id)
     loadData()
   }
 
@@ -247,9 +267,15 @@ export default function Home() {
               <DealsList
                 deals={businessData.topDeals}
                 onAdd={handleAddDeal}
+                onUpdate={handleUpdateDeal}
                 onDelete={handleDeleteDeal}
               />
-              <ActionItems items={businessData.actionItems} />
+              <ActionItems
+                items={businessData.actionItems}
+                onAdd={handleAddAction}
+                onUpdate={handleUpdateAction}
+                onDelete={handleDeleteAction}
+              />
             </div>
           </TabsContent>
 
@@ -283,6 +309,7 @@ export default function Home() {
                 <DealsList
                   deals={businessData.topDeals}
                   onAdd={handleAddDeal}
+                  onUpdate={handleUpdateDeal}
                   onDelete={handleDeleteDeal}
                 />
               </div>
@@ -305,7 +332,12 @@ export default function Home() {
           {/* Actions Tab */}
           <TabsContent value="actions" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">
-              <ActionItems items={businessData.actionItems} />
+              <ActionItems
+                items={businessData.actionItems}
+                onAdd={handleAddAction}
+                onUpdate={handleUpdateAction}
+                onDelete={handleDeleteAction}
+              />
               <div className="h-[600px]">
                 {activeConversationId && (
                   <ChatInterface

@@ -197,6 +197,17 @@ export class DataManager {
     return data.actionItems[index]
   }
 
+  // Supprimer une action
+  deleteAction(id: string): boolean {
+    const data = this.loadData()
+    const index = data.actionItems.findIndex((a) => a.id === id)
+    if (index === -1) return false
+
+    data.actionItems.splice(index, 1)
+    this.saveData(data)
+    return true
+  }
+
   // Mettre à jour manuellement les métriques
   updateMetricsManually(metrics: BusinessMetrics): void {
     const data = this.loadData()
