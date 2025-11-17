@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BusinessContext } from "@/types"
 import { AIInsightsEngine, AIInsight, SuggestedAction } from "@/lib/ai-insights"
+import { AIInsightsGeminiEngine } from "@/lib/ai-insights-gemini"
 import {
   Sparkles,
   AlertTriangle,
@@ -15,7 +16,9 @@ import {
   TrendingUp,
   ChevronRight,
   Plus,
-  X
+  X,
+  Zap,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -29,16 +32,44 @@ export function AIInsights({ businessContext, onAddAction }: AIInsightsProps) {
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [dismissedInsights, setDismissedInsights] = useState<Set<string>>(new Set())
   const [dismissedActions, setDismissedActions] = useState<Set<string>>(new Set())
+  const [useGemini, setUseGemini] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    // Générer les insights
-    const generatedInsights = AIInsightsEngine.generateInsights(businessContext)
-    setInsights(generatedInsights)
+    const generateInsights = async () => {
+      setIsLoading(true)
+      try {
+        if (useGemini) {
+          // Générer les insights avec Gemini
+          const generatedInsights = await AIInsightsGeminiEngine.generateInsights(businessContext)
+          setInsights(generatedInsights)
 
-    // Générer les actions suggérées
-    const generatedActions = AIInsightsEngine.generateSuggestedActions(businessContext)
-    setSuggestedActions(generatedActions)
-  }, [businessContext])
+          // Générer les actions suggérées avec Gemini
+          const generatedActions = await AIInsightsGeminiEngine.generateSuggestedActions(businessContext)
+          setSuggestedActions(generatedActions)
+        } else {
+          // Générer les insights par règles (fallback)
+          const generatedInsights = AIInsightsEngine.generateInsights(businessContext)
+          setInsights(generatedInsights)
+
+          // Générer les actions suggérées par règles
+          const generatedActions = AIInsightsEngine.generateSuggestedActions(businessContext)
+          setSuggestedActions(generatedActions)
+        }
+      } catch (error) {
+        console.error("Erreur génération insights:", error)
+        // Fallback automatique sur règles en cas d'erreur
+        const generatedInsights = AIInsightsEngine.generateInsights(businessContext)
+        setInsights(generatedInsights)
+        const generatedActions = AIInsightsEngine.generateSuggestedActions(businessContext)
+        setSuggestedActions(generatedActions)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    generateInsights()
+  }, [businessContext, useGemini])
 
   const getInsightIcon = (type: AIInsight["type"]) => {
     switch (type) {
@@ -115,14 +146,37 @@ export function AIInsights({ businessContext, onAddAction }: AIInsightsProps) {
       {visibleInsights.length > 0 && (
         <Card className="shadow-xl border-2 border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-950/50 dark:to-pink-950/50 backdrop-blur-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg">
-                <Sparkles className="h-5 w-5 text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg">
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  ) : (
+                    <Sparkles className="h-5 w-5 text-white" />
+                  )}
+                </div>
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    IA Insights du jour
+                    {useGemini && <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 text-xs">✨ Gemini AI</Badge>}
+                  </CardTitle>
+                  <CardDescription>
+                    {isLoading ? "Analyse en cours..." : "Analyse intelligente de votre activité"}
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-lg">IA Insights du jour</CardTitle>
-                <CardDescription>Analyse intelligente de votre activité</CardDescription>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setUseGemini(!useGemini)}
+                className={cn(
+                  "gap-2",
+                  useGemini && "border-purple-400 bg-purple-50 dark:bg-purple-950"
+                )}
+              >
+                <Zap className={cn("h-3 w-3", useGemini && "text-purple-600")} />
+                {useGemini ? "Mode Gemini" : "Mode Règles"}
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
