@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - claude/rebuild-sales-agent-01RqPAZCADJaFhuMSeF3EKYR
   workflow_dispatch:
 
 permissions:
