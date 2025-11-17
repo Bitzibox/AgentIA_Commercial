@@ -9,10 +9,14 @@ import { ActionItems } from "@/components/action-items"
 import { ApiKeyDialog } from "@/components/api-key-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { dataManager } from "@/lib/data-manager"
 import { conversationManager } from "@/lib/conversation-manager"
 import { BusinessContext, Deal } from "@/types"
-import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles } from "lucide-react"
+import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings } from "lucide-react"
+import { MetricsConfig } from "@/components/metrics-config"
+import { LeadsManager } from "@/components/leads-manager"
+import { ActivitiesManager } from "@/components/activities-manager"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
@@ -59,6 +63,31 @@ export default function Home() {
 
   const handleDeleteDeal = (id: string) => {
     dataManager.deleteDeal(id)
+    loadData()
+  }
+
+  const handleUpdateMetrics = (metrics: typeof businessData.metrics) => {
+    dataManager.updateMetricsManually(metrics)
+    loadData()
+  }
+
+  const handleAddLead = (lead: any) => {
+    dataManager.addLead(lead)
+    loadData()
+  }
+
+  const handleUpdateLead = (id: string, updates: any) => {
+    dataManager.updateLead(id, updates)
+    loadData()
+  }
+
+  const handleDeleteLead = (id: string) => {
+    dataManager.deleteLead(id)
+    loadData()
+  }
+
+  const handleAddActivity = (activity: any) => {
+    dataManager.addActivity(activity)
     loadData()
   }
 
@@ -172,7 +201,7 @@ export default function Home() {
 
         {/* Main Content avec tabs améliorés */}
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-1.5 rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/50">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-1.5 rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/50">
             <TabsTrigger
               value="dashboard"
               className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white transition-all duration-200"
@@ -200,6 +229,13 @@ export default function Home() {
             >
               <CheckSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Actions</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="config"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white transition-all duration-200"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Configuration</span>
             </TabsTrigger>
           </TabsList>
 
@@ -281,6 +317,39 @@ export default function Home() {
                   />
                 )}
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Configuration Tab */}
+          <TabsContent value="config" className="space-y-6">
+            <div className="space-y-6">
+              {/* Configuration des métriques */}
+              <MetricsConfig metrics={businessData.metrics} onSave={handleUpdateMetrics} />
+
+              {/* Gestion des leads */}
+              <LeadsManager
+                leads={businessData.hotLeads}
+                onAdd={handleAddLead}
+                onUpdate={handleUpdateLead}
+                onDelete={handleDeleteLead}
+              />
+
+              {/* Gestion des activités */}
+              <ActivitiesManager activities={businessData.recentActivities} onAdd={handleAddActivity} />
+
+              {/* Note sur les deals et actions */}
+              <Card className="border-2 border-dashed border-primary/50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Autres données
+                  </CardTitle>
+                  <CardDescription>
+                    Les opportunités (deals) se gèrent dans l'onglet "Opportunités" et les actions dans
+                    l'onglet "Actions"
+                  </CardDescription>
+                </CardHeader>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
