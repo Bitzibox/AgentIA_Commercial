@@ -6,18 +6,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DealDialog } from "@/components/deal-dialog"
 import { DealAnalysis } from "@/components/deal-analysis"
-import { Deal } from "@/types"
+import { DealCopilot } from "@/components/deal-copilot"
+import { Deal, BusinessContext } from "@/types"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
 import { Building2, TrendingUp, Calendar, User, Trash2, Edit } from "lucide-react"
 
 interface DealsListProps {
   deals: Deal[]
+  businessContext?: BusinessContext
   onAdd?: (deal: Omit<Deal, "id">) => void
   onUpdate?: (id: string, updates: Partial<Deal>) => void
   onDelete?: (id: string) => void
 }
 
-export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) {
+export function DealsList({ deals, businessContext, onAdd, onUpdate, onDelete }: DealsListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const getStageColor = (stage: Deal["stage"]) => {
@@ -145,37 +147,42 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
                   {formatDate(deal.lastActivity)}
                 </div>
 
-                {(onUpdate || onDelete) && (
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    {onUpdate && (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <DealDialog
-                          deal={deal}
-                          onSave={handleSave}
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                          }
-                        />
-                      </div>
-                    )}
-                    {onDelete && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(deal.id, deal.company)}
-                        className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
+                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  {/* Copilote IA contextuel */}
+                  {businessContext && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DealCopilot deal={deal} businessContext={businessContext} />
+                    </div>
+                  )}
+
+                  {onUpdate && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DealDialog
+                        deal={deal}
+                        onSave={handleSave}
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(deal.id, deal.company)}
+                      className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))

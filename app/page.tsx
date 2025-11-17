@@ -270,6 +270,7 @@ export default function Home() {
             <div className="grid gap-6 lg:grid-cols-2">
               <DealsList
                 deals={businessData.topDeals}
+                businessContext={businessData}
                 onAdd={handleAddDeal}
                 onUpdate={handleUpdateDeal}
                 onDelete={handleDeleteDeal}
@@ -312,6 +313,7 @@ export default function Home() {
               <div className="lg:col-span-2">
                 <DealsList
                   deals={businessData.topDeals}
+                  businessContext={businessData}
                   onAdd={handleAddDeal}
                   onUpdate={handleUpdateDeal}
                   onDelete={handleDeleteDeal}
