@@ -15,25 +15,27 @@ interface ChatInterfaceProps {
   businessContext?: any
 }
 
-// Composant pour afficher le markdown avec un beau style
+const CHAT_HISTORY_KEY = "agent-commercial-chat-history"
+
+// Composant pour afficher le markdown avec un style plus aéré
 const MarkdownContent = ({ content }: { content: string }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm]}
     className="prose prose-sm dark:prose-invert max-w-none
       prose-headings:font-bold prose-headings:text-foreground
-      prose-h1:text-xl prose-h1:mt-4 prose-h1:mb-3
-      prose-h2:text-lg prose-h2:mt-3 prose-h2:mb-2
-      prose-h3:text-base prose-h3:mt-2 prose-h3:mb-1.5
-      prose-p:my-1.5 prose-p:leading-7 prose-p:text-foreground
+      prose-h1:text-xl prose-h1:mt-6 prose-h1:mb-4
+      prose-h2:text-lg prose-h2:mt-5 prose-h2:mb-3
+      prose-h3:text-base prose-h3:mt-4 prose-h3:mb-2
+      prose-p:my-3 prose-p:leading-7 prose-p:text-foreground
       prose-strong:text-foreground prose-strong:font-semibold
-      prose-ul:my-2 prose-ul:list-disc prose-ul:pl-4
-      prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-4
-      prose-li:my-1 prose-li:text-foreground
+      prose-ul:my-3 prose-ul:list-disc prose-ul:pl-4
+      prose-ol:my-3 prose-ol:list-decimal prose-ol:pl-4
+      prose-li:my-2 prose-li:text-foreground
       prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
-      prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg prose-pre:overflow-x-auto
-      prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic
-      prose-hr:my-4 prose-hr:border-border
-      prose-table:border-collapse prose-table:w-full prose-table:my-3
+      prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg prose-pre:overflow-x-auto prose-pre:my-4
+      prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-4
+      prose-hr:my-6 prose-hr:border-border
+      prose-table:border-collapse prose-table:w-full prose-table:my-4
       prose-th:border prose-th:border-border prose-th:px-4 prose-th:py-2 prose-th:bg-muted
       prose-td:border prose-td:border-border prose-td:px-4 prose-td:py-2
       prose-a:text-primary prose-a:underline prose-a:underline-offset-2
@@ -44,24 +46,56 @@ const MarkdownContent = ({ content }: { content: string }) => (
 )
 
 export function ChatInterface({ businessContext }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Bonjour ! Je suis votre copilote commercial IA. Je peux vous aider à analyser vos ventes, prioriser vos opportunités, préparer vos rendez-vous clients et bien plus. Comment puis-je vous assister aujourd'hui ?",
-      timestamp: new Date(),
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
+  // Charger l'historique au montage du composant
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(CHAT_HISTORY_KEY)
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored)
+          // Reconvertir les dates
+          const messagesWithDates = parsed.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          }))
+          setMessages(messagesWithDates)
+        } catch (error) {
+          console.error("Erreur chargement historique:", error)
+          setMessages(getInitialMessage())
+        }
+      } else {
+        setMessages(getInitialMessage())
+      }
+    }
+  }, [])
+
+  // Sauvegarder l'historique à chaque changement
+  useEffect(() => {
+    if (typeof window !== "undefined" && messages.length > 0) {
+      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages))
+    }
+  }, [messages])
+
   // Auto-scroll vers le bas quand il y a de nouveaux messages ou streaming
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, streamingMessage])
+
+  const getInitialMessage = (): Message[] => [
+    {
+      id: "1",
+      role: "assistant",
+      content: "Bonjour ! Je suis votre copilote commercial IA. Je peux vous aider à analyser vos ventes, prioriser vos opportunités, préparer vos rendez-vous clients et bien plus. Comment puis-je vous assister aujourd'hui ?",
+      timestamp: new Date(),
+    },
+  ]
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -135,6 +169,66 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  // Nouvelle fonction pour auto-envoyer les questions suggérées
+  const handleSuggestedClick = (question: string) => {
+    setInput(question)
+    // Envoyer automatiquement après un court délai pour que l'utilisateur voie la question
+    setTimeout(() => {
+      const event = { target: { value: question } } as any
+      setInput(question)
+      // Simuler l'envoi
+      if (geminiClientService.hasApiKey() && question.trim() && !isLoading) {
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          role: "user",
+          content: question,
+          timestamp: new Date(),
+        }
+
+        setMessages((prev) => [...prev, userMessage])
+        setInput("")
+        setIsLoading(true)
+        setStreamingMessage("")
+
+        geminiClientService
+          .chatStream(
+            [...messages, userMessage].map((m) => ({
+              role: m.role === "user" ? "user" : "model",
+              parts: m.content,
+            })),
+            businessContext,
+            (text) => {
+              setStreamingMessage(text)
+            }
+          )
+          .then((finalResponse) => {
+            const assistantMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              role: "assistant",
+              content: finalResponse || "Désolé, je n'ai pas pu générer de réponse.",
+              timestamp: new Date(),
+            }
+            setMessages((prev) => [...prev, assistantMessage])
+            setStreamingMessage("")
+          })
+          .catch((error: any) => {
+            console.error("Chat error:", error)
+            const errorMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              role: "assistant",
+              content: error.message || "Désolé, une erreur s'est produite. Veuillez réessayer.",
+              timestamp: new Date(),
+            }
+            setMessages((prev) => [...prev, errorMessage])
+            setStreamingMessage("")
+          })
+          .finally(() => {
+            setIsLoading(false)
+          })
+      }
+    }, 100)
   }
 
   const suggestedQuestions = [
@@ -243,7 +337,7 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
             </div>
           )}
 
-          {/* Questions suggérées */}
+          {/* Questions suggérées - Auto-envoi au clic */}
           {messages.length === 1 && !isLoading && (
             <div className="space-y-2 mt-4">
               <p className="text-sm text-muted-foreground font-medium px-1">
@@ -255,7 +349,7 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
                     key={index}
                     variant="outline"
                     className="justify-start text-left h-auto py-2 px-3 hover:bg-primary/5"
-                    onClick={() => setInput(question)}
+                    onClick={() => handleSuggestedClick(question)}
                   >
                     <span className="text-sm">{question}</span>
                   </Button>
