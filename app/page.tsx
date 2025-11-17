@@ -193,15 +193,8 @@ export default function Home() {
 
           {/* Chat Tab */}
           <TabsContent value="chat" className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <div className="h-[calc(100vh-250px)]">
-                  <ChatInterface businessContext={businessData} />
-                </div>
-              </div>
-              <div className="space-y-6">
-                <MetricsDashboard metrics={businessData.metrics} />
-              </div>
+            <div className="h-[calc(100vh-250px)]">
+              <ChatInterface businessContext={businessData} />
             </div>
           </TabsContent>
 
