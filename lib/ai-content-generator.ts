@@ -1,152 +1,105 @@
-import { Deal, Lead, BusinessContext } from "@/types"
+import { Deal, BusinessContext } from "@/types"
+import { geminiClientService } from "@/lib/gemini-client"
 
 export class AIContentGenerator {
-  // Générer un email de relance personnalisé
-  static generateFollowUpEmail(deal: Deal): string {
+  // Générer un email de relance personnalisé avec Gemini
+  static async generateFollowUpEmail(deal: Deal): Promise<string> {
     const daysSinceContact = Math.floor(
       (new Date().getTime() - new Date(deal.lastActivity).getTime()) / (1000 * 60 * 60 * 24)
     )
 
-    return `Objet : Suite à notre échange concernant ${deal.company}
+    const prompt = `Tu es un expert en vente B2B. Génère un email de relance professionnel et personnalisé.
 
-Bonjour ${deal.contact},
+CONTEXTE DU DEAL:
+- Entreprise: ${deal.company}
+- Contact: ${deal.contact}
+- Valeur: ${deal.value.toLocaleString('fr-FR')} €
+- Phase actuelle: ${deal.stage}
+- Probabilité: ${deal.probability}%
+- Dernière activité: Il y a ${daysSinceContact} jours
+${deal.nextStep ? `- Prochaine étape prévue: ${deal.nextStep}` : ''}
+${deal.tags ? `- Tags: ${deal.tags.join(', ')}` : ''}
 
-J'espère que vous allez bien.
+INSTRUCTIONS:
+1. Rédige un email de relance court et percutant (150-200 mots)
+2. Objet accrocheur et personnalisé
+3. Rappelle subtilement le contexte sans être insistant
+4. Apporte de la valeur (insight, étude de cas, invitation à un événement, etc.)
+5. CTA clair (proposition de RDV avec 2 créneaux précis)
+6. Ton professionnel mais chaleureux
+7. Adapte le contenu à la phase du deal (${deal.stage})
 
-Je reviens vers vous concernant notre échange de il y a ${daysSinceContact} jours au sujet de votre projet ${deal.nextStep ? `(${deal.nextStep})` : ""}.
+FORMAT ATTENDU:
+Objet: [objet accrocheur]
 
-Où en êtes-vous dans votre réflexion ? Avez-vous eu l'occasion de consulter ${deal.stage === "Proposition" ? "notre proposition" : "les informations que je vous ai transmises"} ?
-
-Je reste à votre disposition pour :
-${deal.stage === "Qualification" ? "• Répondre à vos questions\n• Organiser une démonstration personnalisée\n• Vous présenter des cas clients similaires" : ""}
-${deal.stage === "Proposition" ? "• Discuter des détails de notre proposition\n• Ajuster notre offre à vos besoins spécifiques\n• Planifier les prochaines étapes" : ""}
-${deal.stage === "Négociation" ? "• Finaliser les derniers détails\n• Organiser une réunion avec les décideurs\n• Répondre aux éventuelles objections" : ""}
-
-Seriez-vous disponible pour un point téléphonique cette semaine ?
+[Corps de l'email]
 
 Bien cordialement,
-[Votre nom]
+[Signature]
 
 ---
-💡 Conseil IA : Personnalisez cet email en ajoutant :
-- Une référence à votre dernière conversation
-- Un élément d'actualité de leur secteur
-- Une valeur ajoutée concrète (étude de cas, ROI estimé, etc.)
-`
+💡 Conseil personnalisé: [1-2 lignes de conseil stratégique pour maximiser les chances de réponse]`
+
+    try {
+      return await geminiClientService.generateContent(prompt)
+    } catch (error) {
+      console.error("Erreur génération email:", error)
+      return `**Erreur de génération**\n\nImpossible de générer l'email pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
+    }
   }
 
-  // Générer une proposition commerciale structurée
-  static generateProposal(deal: Deal, context: BusinessContext): string {
+  // Générer une proposition commerciale structurée avec Gemini
+  static async generateProposal(deal: Deal, context: BusinessContext): Promise<string> {
     const similarDeals = context.topDeals
       .filter(d => d.stage === "Gagné" && Math.abs(d.value - deal.value) / deal.value < 0.3)
       .slice(0, 2)
 
-    return `# PROPOSITION COMMERCIALE
-## ${deal.company}
+    const prompt = `Tu es un expert en proposition commerciale B2B. Génère une proposition commerciale complète et professionnelle en markdown.
 
----
+CONTEXTE DU DEAL:
+- Entreprise: ${deal.company}
+- Contact: ${deal.contact}
+- Valeur estimée: ${deal.value.toLocaleString('fr-FR')} €
+- Phase: ${deal.stage}
+- Probabilité: ${deal.probability}%
+${deal.nextStep ? `- Prochaine étape: ${deal.nextStep}` : ''}
 
-### 📋 CONTEXTE & ENJEUX
+CONTEXTE BUSINESS:
+- Pipeline total: ${context.topDeals.length} deals
+- Taux de conversion moyen: ${context.metrics.conversionRate}%
+${similarDeals.length > 0 ? `- Deals similaires gagnés: ${similarDeals.map(d => `${d.company} (${d.value.toLocaleString('fr-FR')} €)`).join(', ')}` : ''}
 
-**Client :** ${deal.company}
-**Contact :** ${deal.contact}
-**Montant estimé :** ${deal.value.toLocaleString('fr-FR')} €
-**Probabilité de succès :** ${deal.probability}%
+INSTRUCTIONS:
+Génère une proposition commerciale structurée avec les sections suivantes:
 
-#### Enjeux identifiés :
-1. [Enjeu principal à définir selon vos échanges]
-2. [Défi business à résoudre]
-3. [Objectif de croissance/optimisation]
+1. **RÉSUMÉ EXÉCUTIF** (2-3 lignes percutantes)
+2. **CONTEXTE & ENJEUX** (problématiques identifiées)
+3. **SOLUTION PROPOSÉE** (bénéfices concrets, valeur ajoutée)
+4. **PÉRIMÈTRE DE LA PRESTATION** (3 phases détaillées avec timeline)
+5. **INVESTISSEMENT** (tableau avec répartition: 40% licence/setup, 35% déploiement, 25% formation/support)
+6. **ROI ESTIMÉ** (retour sur investissement attendu avec métriques)
+7. **PLANNING PRÉVISIONNEL** (jalons clés)
+8. **PROCHAINES ÉTAPES** (4-5 actions concrètes)
 
----
+${similarDeals.length > 0 ? `Mentionne les succès de ${similarDeals.map(d => d.company).join(' et ')} comme références.` : ''}
 
-### 🎯 SOLUTION PROPOSÉE
+IMPORTANT:
+- Utilise du markdown pour la mise en forme
+- Sois concret et orienté résultats
+- Utilise des tableaux, listes et émojis
+- Adapte le ton selon la taille du deal
+- Inclus un conseil stratégique en fin de document`
 
-#### Notre approche :
-Notre solution vous permettra de :
-- ✅ [Bénéfice clé n°1 - gain de temps, efficacité...]
-- ✅ [Bénéfice clé n°2 - réduction des coûts...]
-- ✅ [Bénéfice clé n°3 - amélioration de la performance...]
-
-#### Périmètre de la prestation :
-1. **Phase 1 - Cadrage** (2 semaines)
-   - Audit de l'existant
-   - Définition des besoins
-   - Conception de la solution
-
-2. **Phase 2 - Déploiement** (4-6 semaines)
-   - Mise en place technique
-   - Formation des équipes
-   - Tests et ajustements
-
-3. **Phase 3 - Accompagnement** (3 mois)
-   - Support technique
-   - Optimisation continue
-   - Reporting mensuel
-
----
-
-### 💰 INVESTISSEMENT
-
-| Prestation | Montant |
-|-----------|---------|
-| Licence / Setup | ${Math.round(deal.value * 0.4).toLocaleString('fr-FR')} € |
-| Déploiement | ${Math.round(deal.value * 0.35).toLocaleString('fr-FR')} € |
-| Formation & Support | ${Math.round(deal.value * 0.25).toLocaleString('fr-FR')} € |
-| **TOTAL** | **${deal.value.toLocaleString('fr-FR')} €** |
-
-*Paiement en 3 fois possible*
-
----
-
-### 📈 ROI ESTIMÉ
-
-**Retour sur investissement attendu : 6-12 mois**
-
-Gains estimés :
-- Gain de productivité : +30%
-- Réduction des coûts : 15-20%
-- Amélioration de la satisfaction client : +25%
-
-${similarDeals.length > 0 ? `
----
-
-### 🏆 RÉFÉRENCES CLIENTS
-
-Nos clients similaires :
-${similarDeals.map(d => `- **${d.company}** : Deal de ${d.value.toLocaleString('fr-FR')} € - Résultats très positifs`).join('\n')}
-` : ''}
-
----
-
-### 🗓️ PLANNING PRÉVISIONNEL
-
-- **J+7** : Validation de la proposition
-- **J+14** : Signature du contrat
-- **J+21** : Démarrage du projet
-- **J+60** : Mise en production
-
----
-
-### 📞 PROCHAINES ÉTAPES
-
-1. Validation de cette proposition de votre côté
-2. Rendez-vous de cadrage avec vos équipes
-3. Ajustements éventuels
-4. Contractualisation
-
----
-
-💡 **Conseil IA** : Personnalisez cette proposition en :
-- Ajoutant des métriques spécifiques à leur secteur
-- Incluant 2-3 cas clients concrets
-- Proposant une démo ou un POC gratuit
-- Limitant la validité de l'offre (créer l'urgence)
-`
+    try {
+      return await geminiClientService.generateContent(prompt)
+    } catch (error) {
+      console.error("Erreur génération proposition:", error)
+      return `**Erreur de génération**\n\nImpossible de générer la proposition pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
+    }
   }
 
-  // Générer un briefing pour un RDV
-  static generateMeetingBriefing(deal: Deal, context: BusinessContext): string {
+  // Générer un briefing pour un RDV avec Gemini
+  static async generateMeetingBriefing(deal: Deal, context: BusinessContext): Promise<string> {
     const relatedActions = context.actionItems.filter(
       a => a.relatedTo?.type === "deal" && a.relatedTo.id === deal.id
     )
@@ -155,245 +108,96 @@ ${similarDeals.map(d => `- **${d.company}** : Deal de ${d.value.toLocaleString('
       (new Date().getTime() - new Date(deal.lastActivity).getTime()) / (1000 * 60 * 60 * 24)
     )
 
-    return `# 📋 BRIEFING RDV - ${deal.company}
+    const prompt = `Tu es un expert en stratégie commerciale. Génère un briefing complet pour préparer un RDV commercial.
 
-## 🎯 INFORMATIONS CLÉS
+CONTEXTE DU DEAL:
+- Entreprise: ${deal.company}
+- Contact: ${deal.contact}
+- Valeur: ${deal.value.toLocaleString('fr-FR')} €
+- Probabilité: ${deal.probability}%
+- Phase: ${deal.stage}
+- Dernière activité: Il y a ${daysSinceLastActivity} jours
+${deal.nextStep ? `- Prochaine étape: ${deal.nextStep}` : ''}
+${deal.tags ? `- Tags: ${deal.tags.join(', ')}` : ''}
 
-**Entreprise :** ${deal.company}
-**Contact :** ${deal.contact}
-**Valeur du deal :** ${deal.value.toLocaleString('fr-FR')} €
-**Probabilité :** ${deal.probability}%
-**Phase actuelle :** ${deal.stage}
-**Dernière activité :** Il y a ${daysSinceLastActivity} jour${daysSinceLastActivity > 1 ? 's' : ''}
+ACTIONS ASSOCIÉES:
+${relatedActions.length > 0 ? relatedActions.map(a => `- ${a.title} ${a.completed ? '✅' : '⏳'}`).join('\n') : '- Première interaction'}
 
----
+CONTEXTE BUSINESS:
+- Taux de conversion: ${context.metrics.conversionRate}%
+- Cycle de vente moyen: ${context.metrics.salesCycle} jours
 
-## 📊 CONTEXTE
+INSTRUCTIONS:
+Génère un briefing de RDV structuré avec:
 
-${deal.nextStep ? `**Prochaine étape prévue :** ${deal.nextStep}\n` : ''}
-${deal.tags && deal.tags.length > 0 ? `**Tags :** ${deal.tags.join(', ')}\n` : ''}
+1. **INFORMATIONS CLÉS** (recap du deal)
+2. **CONTEXTE** (historique et situation actuelle)
+3. **OBJECTIFS DU RDV** (4-5 objectifs SMART adaptés à la phase ${deal.stage})
+4. **QUESTIONS CLÉS À POSER** (3 catégories: contexte, projet, décision)
+5. **PITCH ELEVATOR** (30 secondes max, percutant)
+6. **POINTS DE VIGILANCE** (alertes basées sur proba ${deal.probability}%, délai ${daysSinceLastActivity}j, phase ${deal.stage})
+7. **ACTIONS POST-RDV** (5 actions systématiques)
+8. **CONSEILS TACTIQUES** (3-4 tips concrets pour maximiser les chances)
 
-### Historique récent :
-${relatedActions.length > 0 ? relatedActions.slice(0, 3).map(a => `- ${a.title} ${a.completed ? '✅' : '⏳'}`).join('\n') : '- Première interaction'}
+IMPORTANT:
+- Utilise du markdown avec émojis
+- Sois actionnable et concret
+- Adapte les objectifs à la phase du deal
+- Identifie les red flags potentiels
+- Propose une stratégie de closing si deal mature`
 
----
-
-## 💡 OBJECTIFS DE CE RDV
-
-${deal.stage === "Prospection" ? `
-1. ✅ Comprendre leurs enjeux business actuels
-2. ✅ Identifier les décideurs et le processus d'achat
-3. ✅ Qualifier le budget et le timing
-4. ✅ Susciter l'intérêt pour une démo/présentation
-` : ''}
-${deal.stage === "Qualification" ? `
-1. ✅ Valider les besoins identifiés
-2. ✅ Présenter notre solution en détail
-3. ✅ Discuter du budget et du ROI
-4. ✅ Obtenir un engagement pour la prochaine étape
-` : ''}
-${deal.stage === "Proposition" ? `
-1. ✅ Présenter notre proposition détaillée
-2. ✅ Répondre aux questions et objections
-3. ✅ Ajuster l'offre si nécessaire
-4. ✅ Négocier les conditions
-` : ''}
-${deal.stage === "Négociation" ? `
-1. ✅ Finaliser les derniers points de négociation
-2. ✅ Lever les objections restantes
-3. ✅ Présenter les garanties et conditions
-4. ✅ Obtenir un accord de principe
-` : ''}
-${deal.stage === "Closing" ? `
-1. ✅ Finaliser la contractualisation
-2. ✅ Valider le planning de démarrage
-3. ✅ Organiser le kick-off projet
-4. ✅ Signer le contrat
-` : ''}
-
----
-
-## ❓ QUESTIONS CLÉS À POSER
-
-### Sur le contexte :
-- Quels sont vos principaux défis actuels dans [domaine] ?
-- Comment gérez-vous [processus spécifique] aujourd'hui ?
-- Qu'est-ce qui vous a motivé à chercher une nouvelle solution ?
-
-### Sur le projet :
-- Quel est votre timing idéal pour la mise en place ?
-- Qui sont les autres parties prenantes dans cette décision ?
-- Quel budget avez-vous alloué à ce projet ?
-
-### Sur la décision :
-- Quels critères sont les plus importants pour votre choix ?
-- Évaluez-vous d'autres solutions en parallèle ?
-- Quelles sont les prochaines étapes de votre processus d'achat ?
-
----
-
-## 🎤 PITCH ELEVATOR (30 secondes)
-
-"Nous aidons ${deal.company} à [bénéfice principal].
-Contrairement aux solutions classiques, notre approche permet de [différenciation].
-Nos clients comme [référence] ont obtenu [résultat concret] en [délai]."
-
----
-
-## 🚨 POINTS DE VIGILANCE
-
-${deal.probability < 50 ? '⚠️ **Probabilité faible** - Identifier les blocages et qualifier sérieusement l\'opportunité\n' : ''}
-${daysSinceLastActivity > 14 ? '⚠️ **Deal froid** - Re-créer l\'engagement et valider l\'intérêt\n' : ''}
-${deal.stage === "Négociation" ? '⚠️ **Phase sensible** - Rester ferme sur la valeur, flexible sur les modalités\n' : ''}
-
----
-
-## 📝 ACTIONS POST-RDV
-
-1. ✍️ Envoyer un compte-rendu dans les 2h
-2. 📧 Transmettre les documents promis
-3. 📅 Planifier la prochaine étape
-4. 🔄 Mettre à jour le CRM avec les infos collectées
-
----
-
-💡 **Conseil IA** : Pendant le RDV :
-- Écoutez 70% du temps, parlez 30%
-- Prenez des notes sur les mots-clés utilisés
-- Posez des questions ouvertes
-- Identifiez les objections cachées
-- Obtenez un engagement concret sur la suite
-`
+    try {
+      return await geminiClientService.generateContent(prompt)
+    } catch (error) {
+      console.error("Erreur génération briefing:", error)
+      return `**Erreur de génération**\n\nImpossible de générer le briefing pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
+    }
   }
 
-  // Générer un script d'appel
-  static generateCallScript(contact: string, company: string, context?: string): string {
-    return `# 📞 SCRIPT D'APPEL - ${company}
+  // Générer un script d'appel avec Gemini
+  static async generateCallScript(contact: string, company: string, context?: string): Promise<string> {
+    const prompt = `Tu es un expert en prospection téléphonique B2B. Génère un script d'appel professionnel et efficace.
 
-## 🎯 OBJECTIF
-Obtenir un RDV de 30 minutes pour présenter notre solution
+CONTEXTE:
+- Contact: ${contact}
+- Entreprise: ${company}
+${context ? `- Contexte additionnel: ${context}` : ''}
 
----
+INSTRUCTIONS:
+Génère un script d'appel structuré avec:
 
-## 👋 INTRODUCTION (15 secondes)
+1. **OBJECTIF** (clair et mesurable)
+2. **INTRODUCTION** (15 sec, accroche personnalisée pour ${company})
+3. **PITCH** (30 sec, valeur ajoutée claire)
+4. **QUESTIONS DE QUALIFICATION** (5-7 questions ouvertes pour identifier les pain points)
+5. **PRISE DE RDV** (closing avec choix limité de créneaux)
+6. **GESTION DES OBJECTIONS** (5 objections classiques + réponses)
+   - "Je n'ai pas le temps"
+   - "Envoyez-moi de la documentation"
+   - "Nous avons déjà une solution"
+   - "Ce n'est pas le bon moment"
+   - "Envoyez un email"
+7. **CONCLUSION** (3 scenarios: RDV obtenu, intéressé mais pas de RDV, refus net)
+8. **POST-APPEL** (checklist de ce qu'il faut noter dans le CRM)
 
-"Bonjour ${contact}, [Votre Prénom] de [Votre Entreprise].
+IMPORTANT:
+- Ton conversationnel, pas robotique
+- Personnalise pour ${company} en intégrant ${contact}
+- Utilise markdown avec émojis
+- Inclus des tips tactiques (langage corporel, intonation)
+- Évite le jargon commercial lourd
+- Focus sur la valeur, pas sur la vente`
 
-Je vous contacte car nous accompagnons des entreprises comme ${company} dans [domaine d'activité].
-
-${context ? `Suite à ${context}, j'ai pensé que notre approche pourrait vous intéresser.` : `J'ai remarqué que [insight sur leur entreprise].`}
-
-Avez-vous 2 minutes ?"
-
----
-
-## 🎤 PITCH (30 secondes)
-
-**Si OUI :**
-"Parfait. En bref, nous aidons les [type d'entreprise] à [bénéfice principal] grâce à [votre solution].
-
-Nos clients comme [référence] ont réussi à [résultat concret] en [délai].
-
-Ce qui les a convaincus ? [argument différenciant]."
-
-**Transition :**
-"Pour voir si cela pourrait vous correspondre, j'aurais quelques questions..."
-
----
-
-## ❓ QUESTIONS DE QUALIFICATION (2 minutes)
-
-1. "Comment gérez-vous [processus X] actuellement ?"
-   → Écouter et identifier les pain points
-
-2. "Quels sont vos principaux défis dans ce domaine ?"
-   → Creuser les problématiques
-
-3. "Si vous pouviez améliorer un aspect, ce serait quoi ?"
-   → Identifier le besoin prioritaire
-
----
-
-## 📅 PRISE DE RDV (30 secondes)
-
-"D'accord, je comprends mieux votre situation.
-
-Ce serait intéressant d'approfondir lors d'un échange plus complet.
-Je pourrais vous montrer concrètement comment nous avons aidé [entreprise similaire].
-
-**Êtes-vous disponible mardi ou jeudi de la semaine prochaine ?**"
-
-**Alternative si réticence :**
-"Que diriez-vous d'un échange rapide de 15 minutes en visio ?
-Sans engagement, juste pour voir si ça peut avoir du sens pour vous."
-
----
-
-## 🚫 GESTION DES OBJECTIONS
-
-### "Je n'ai pas le temps"
-→ "Je comprends. Justement, notre solution permet de gagner [X heures/semaine].
-   Un échange de 15 minutes pourrait vous faire économiser beaucoup de temps à long terme."
-
-### "Envoyez-moi de la documentation"
-→ "Avec plaisir ! Pour vous envoyer les informations les plus pertinentes,
-   j'ai juste 2-3 questions rapides... [requalifier]"
-
-### "Nous avons déjà une solution"
-→ "Super ! Curieux de savoir : qu'est-ce qui fonctionne bien ?
-   Et s'il y avait un point à améliorer, ce serait lequel ?"
-
-### "Ce n'est pas le bon moment"
-→ "Je comprends. À quel moment pensez-vous que ce serait plus opportun ?
-   [Obtenir une date précise]"
-
-### "Envoyez un email"
-→ "Aucun problème. Pour que mon email soit pertinent, puis-je vous poser
-   une question rapide sur [pain point identifié] ?"
-
----
-
-## ✅ CONCLUSION
-
-**Si RDV obtenu :**
-"Parfait ! Je vous envoie une invitation pour [date/heure].
-À très bientôt ${contact} !"
-
-**Si pas de RDV mais intéressé :**
-"Je vous envoie un email avec plus d'infos.
-Puis-je vous rappeler dans [délai] pour avoir votre feedback ?"
-
-**Si refus net :**
-"Je comprends. Puis-je vous rappeler dans [3-6 mois] ?
-Les choses évoluent vite !"
-
----
-
-## 📝 POST-APPEL (Immédiat)
-
-✍️ Noter dans le CRM :
-- Niveau d'intérêt (1-5)
-- Pain points identifiés
-- Objections rencontrées
-- Prochaine action
-- Meilleur moment pour rappeler
-
----
-
-💡 **Conseils IA** :
-- ✅ Souriez en parlant (ça s'entend)
-- ✅ Restez debout pendant l'appel (plus d'énergie)
-- ✅ Prenez des notes en écoutant
-- ✅ Utilisez le prénom de la personne
-- ✅ Parlez lentement et clairement
-- ❌ N'interrompez jamais
-- ❌ Ne lisez pas votre script mot pour mot
-- ❌ N'insistez pas si c'est vraiment un refus
-`
+    try {
+      return await geminiClientService.generateContent(prompt)
+    } catch (error) {
+      console.error("Erreur génération script:", error)
+      return `**Erreur de génération**\n\nImpossible de générer le script d'appel pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
+    }
   }
 
-  // Générer un résumé de journée
-  static generateDailySummary(context: BusinessContext): string {
+  // Générer un résumé de journée avec Gemini
+  static async generateDailySummary(context: BusinessContext): Promise<string> {
     const todayActions = context.actionItems.filter(a => {
       if (!a.dueDate) return false
       const today = new Date()
@@ -410,58 +214,53 @@ Les choses évoluent vite !"
       (d.stage === "Négociation" || d.stage === "Closing") && d.probability >= 60
     )
 
-    return `# 📊 RÉSUMÉ DE VOTRE JOURNÉE
+    const prompt = `Tu es un assistant commercial IA. Génère un résumé quotidien motivant et actionnable.
 
----
+CONTEXTE BUSINESS:
+- CA actuel: ${context.metrics.revenue.toLocaleString('fr-FR')} € (${context.metrics.revenueGrowth > 0 ? '+' : ''}${context.metrics.revenueGrowth}%)
+- Leads: ${context.metrics.leads} (${context.metrics.leadsGrowth > 0 ? '+' : ''}${context.metrics.leadsGrowth}%)
+- Taux de conversion: ${context.metrics.conversionRate}%
+- Pipeline: ${context.metrics.pipelineValue.toLocaleString('fr-FR')} €
+- Deals actifs: ${context.topDeals.filter(d => d.stage !== "Gagné" && d.stage !== "Perdu").length}
 
-## ⏰ ACTIONS POUR AUJOURD'HUI (${todayActions.length})
+ACTIONS AUJOURD'HUI:
+${todayActions.length > 0 ? todayActions.map(a => `- ${a.title} (${a.priority}) ${a.relatedTo ? `[${a.relatedTo.name}]` : ''}`).join('\n') : 'Aucune action planifiée'}
 
-${todayActions.length > 0 ? todayActions.map((a, i) => `
-${i + 1}. **${a.title}**
-   ${a.description}
-   ${a.relatedTo ? `   📎 ${a.relatedTo.name}` : ''}
-`).join('\n') : '✅ Aucune action planifiée pour aujourd\'hui'}
+ACTIONS EN RETARD:
+${overdueActions.length > 0 ? overdueActions.map(a => `- ${a.title} (retard: ${Math.floor((new Date().getTime() - new Date(a.dueDate!).getTime()) / (1000 * 60 * 60 * 24))}j)`).join('\n') : 'Aucune action en retard'}
 
----
+DEALS PRIORITAIRES:
+${hotDeals.length > 0 ? hotDeals.map(d => `- ${d.company}: ${d.value.toLocaleString('fr-FR')} € (${d.stage}, ${d.probability}%)`).join('\n') : 'Aucun deal en phase critique'}
 
-${overdueActions.length > 0 ? `## 🚨 ACTIONS EN RETARD (${overdueActions.length})
+LEADS CHAUDS:
+${context.hotLeads.slice(0, 3).map(l => `- ${l.company} (score: ${l.score})`).join('\n')}
 
-${overdueActions.map((a, i) => `
-${i + 1}. **${a.title}**
-   ⏰ Échéance dépassée depuis ${Math.floor((new Date().getTime() - new Date(a.dueDate!).getTime()) / (1000 * 60 * 60 * 24))} jour(s)
-`).join('\n')}
+INSTRUCTIONS:
+Génère un résumé de journée structuré avec:
 
----
-` : ''}
+1. **RÉSUMÉ EXPRESS** (2-3 lignes motivantes sur la journée)
+2. **ACTIONS POUR AUJOURD'HUI** (liste priorisée avec temps estimé)
+3. **ALERTES** (actions en retard à traiter en urgence si présentes)
+4. **DEALS PRIORITAIRES** (focus sur les deals chauds)
+5. **OPPORTUNITÉS DU JOUR** (leads chauds à contacter)
+6. **OBJECTIFS DU JOUR** (3-4 objectifs SMART)
+7. **CONSEIL STRATÉGIQUE** (1 conseil actionnable basé sur les métriques)
 
-## 🔥 DEALS PRIORITAIRES
+IMPORTANT:
+- Ton motivant et énergique
+- Utilise markdown avec émojis
+- Priorise par impact business
+- Donne des time estimates
+- Identifie la "priorité absolue" du jour
+- Termine par une note positive et motivante
 
-${hotDeals.length > 0 ? hotDeals.map(d => `
-### ${d.company}
-- **Montant :** ${d.value.toLocaleString('fr-FR')} €
-- **Phase :** ${d.stage}
-- **Probabilité :** ${d.probability}%
-${d.nextStep ? `- **Prochaine étape :** ${d.nextStep}` : ''}
-`).join('\n') : 'Aucun deal en phase critique'}
+Génère un résumé qui donne envie d'attaquer la journée ! 💪`
 
----
-
-## 📈 VOS OBJECTIFS DU JOUR
-
-1. ✅ Finaliser [X] actions
-2. ✅ Contacter [Y] leads chauds
-3. ✅ Faire avancer [Z] deals
-4. ✅ Mettre à jour le CRM
-
----
-
-💡 **Conseil du jour** :
-Concentrez-vous sur les deals à haute valeur et haute probabilité.
-Un deal gagné vaut mieux que dix prospects tièdes !
-
----
-
-*Bonne journée et bon courage ! 💪*
-`
+    try {
+      return await geminiClientService.generateContent(prompt)
+    } catch (error) {
+      console.error("Erreur génération résumé:", error)
+      return `**Erreur de génération**\n\nImpossible de générer le résumé pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
+    }
   }
 }

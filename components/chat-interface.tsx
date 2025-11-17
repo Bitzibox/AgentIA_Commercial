@@ -82,18 +82,18 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
   }, [messages, streamingMessage, disableAutoScroll])
 
-  // Gérer les commandes slash
-  const handleSlashCommand = (command: string): string | null => {
+  // Gérer les commandes slash (async avec Gemini)
+  const handleSlashCommand = async (command: string): Promise<string | null> => {
     const parts = command.trim().split(/\s+/)
     const cmd = parts[0].toLowerCase()
     const args = parts.slice(1)
 
     switch (cmd) {
       case "/help":
-        return `**Commandes disponibles :**
+        return `**Commandes disponibles (générées par IA) :**
 
-- \`/email [entreprise]\` - Générer un email de relance
-- \`/proposition [entreprise]\` - Générer une proposition commerciale
+- \`/email [entreprise]\` - Générer un email de relance avec Gemini
+- \`/proposition [entreprise]\` - Générer une proposition commerciale complète
 - \`/briefing [entreprise]\` - Générer un briefing de réunion
 - \`/script [contact] [entreprise]\` - Générer un script d'appel
 - \`/summary\` - Générer un résumé quotidien
@@ -104,7 +104,9 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 - \`/proposition Innovatech\`
 - \`/briefing DataFlow\`
 - \`/script Marie TechCorp\`
-- \`/summary\``
+- \`/summary\`
+
+✨ **Toutes les commandes utilisent Gemini AI pour un contenu ultra-personnalisé !**`
 
       case "/email":
         if (!businessContext?.topDeals || businessContext.topDeals.length === 0) {
@@ -117,7 +119,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return AIContentGenerator.generateFollowUpEmail(deal)
+            return await AIContentGenerator.generateFollowUpEmail(deal)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
@@ -125,7 +127,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
           // Prendre le premier deal actif
           const activeDeal = businessContext.topDeals.find((d: any) => d.stage !== "Gagné" && d.stage !== "Perdu")
           if (activeDeal) {
-            return AIContentGenerator.generateFollowUpEmail(activeDeal)
+            return await AIContentGenerator.generateFollowUpEmail(activeDeal)
           } else {
             return "Aucun deal actif disponible."
           }
@@ -141,7 +143,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return AIContentGenerator.generateProposal(deal, businessContext)
+            return await AIContentGenerator.generateProposal(deal, businessContext)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
@@ -150,7 +152,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.stage === "Proposition" || d.stage === "Qualification"
           )
           if (activeDeal) {
-            return AIContentGenerator.generateProposal(activeDeal, businessContext)
+            return await AIContentGenerator.generateProposal(activeDeal, businessContext)
           } else {
             return "Aucun deal en phase de proposition disponible."
           }
@@ -166,13 +168,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return AIContentGenerator.generateMeetingBriefing(deal, businessContext)
+            return await AIContentGenerator.generateMeetingBriefing(deal, businessContext)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
         } else {
           const activeDeal = businessContext.topDeals[0]
-          return AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext)
+          return await AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext)
         }
 
       case "/script":
@@ -181,13 +183,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
         }
         const contact = args[0]
         const company = args.slice(1).join(" ")
-        return AIContentGenerator.generateCallScript(contact, company)
+        return await AIContentGenerator.generateCallScript(contact, company)
 
       case "/summary":
         if (!businessContext) {
           return "Contexte business non disponible."
         }
-        return AIContentGenerator.generateDailySummary(businessContext)
+        return await AIContentGenerator.generateDailySummary(businessContext)
 
       default:
         return null // Pas une commande slash reconnue
@@ -210,27 +212,48 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
     // Vérifier si c'est une commande slash
     if (currentInput.startsWith("/")) {
-      const generatedContent = handleSlashCommand(currentInput)
-      if (generatedContent) {
-        const assistantMessage: Message = {
+      setIsLoading(true)
+      setStreamingMessage("Génération en cours avec Gemini AI...")
+
+      try {
+        const generatedContent = await handleSlashCommand(currentInput)
+        if (generatedContent) {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: generatedContent,
+            timestamp: new Date(),
+            isGenerated: true, // Marquer comme contenu généré
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setStreamingMessage("")
+          setIsLoading(false)
+          return
+        }
+        // Si la commande n'est pas reconnue, afficher un message d'aide
+        const helpMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: generatedContent,
+          content: `Commande non reconnue. Tapez \`/help\` pour voir les commandes disponibles.`,
           timestamp: new Date(),
-          isGenerated: true, // Marquer comme contenu généré
         }
-        setMessages((prev) => [...prev, assistantMessage])
+        setMessages((prev) => [...prev, helpMessage])
+        setStreamingMessage("")
+        setIsLoading(false)
+        return
+      } catch (error) {
+        console.error("Erreur commande slash:", error)
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Erreur lors de la génération du contenu. Vérifiez votre clé API Gemini.`,
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, errorMessage])
+        setStreamingMessage("")
+        setIsLoading(false)
         return
       }
-      // Si la commande n'est pas reconnue, afficher un message d'aide
-      const helpMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Commande non reconnue. Tapez \`/help\` pour voir les commandes disponibles.`,
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, helpMessage])
-      return
     }
 
     // Vérifier que la clé API est configurée pour les requêtes normales
