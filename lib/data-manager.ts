@@ -1,0 +1,217 @@
+import { BusinessContext, Deal, Lead, Activity, ActionItem, BusinessMetrics } from "@/types"
+import { demoBusinessContext } from "./demo-data"
+
+const STORAGE_KEY = "agent-commercial-data"
+
+export class DataManager {
+  private static instance: DataManager | null = null
+
+  private constructor() {}
+
+  static getInstance(): DataManager {
+    if (!DataManager.instance) {
+      DataManager.instance = new DataManager()
+    }
+    return DataManager.instance
+  }
+
+  // Charger les données depuis localStorage ou utiliser les données de démo
+  loadData(): BusinessContext {
+    if (typeof window === "undefined") {
+      return demoBusinessContext
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        // Reconvertir les dates
+        return this.hydrateDates(parsed)
+      } catch (error) {
+        console.error("Erreur chargement données:", error)
+        return demoBusinessContext
+      }
+    }
+
+    // Première utilisation : sauvegarder les données de démo
+    this.saveData(demoBusinessContext)
+    return demoBusinessContext
+  }
+
+  // Sauvegarder les données
+  saveData(data: BusinessContext): void {
+    if (typeof window === "undefined") return
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  }
+
+  // Réinitialiser aux données de démo
+  resetToDemo(): void {
+    if (typeof window === "undefined") return
+    localStorage.removeItem(STORAGE_KEY)
+  }
+
+  // Reconvertir les strings de dates en objets Date
+  private hydrateDates(data: any): BusinessContext {
+    // Deals
+    data.topDeals = data.topDeals.map((deal: any) => ({
+      ...deal,
+      lastActivity: new Date(deal.lastActivity),
+    }))
+
+    // Leads
+    data.hotLeads = data.hotLeads.map((lead: any) => ({
+      ...lead,
+      createdAt: new Date(lead.createdAt),
+      lastContact: lead.lastContact ? new Date(lead.lastContact) : undefined,
+    }))
+
+    // Activities
+    data.recentActivities = data.recentActivities.map((activity: any) => ({
+      ...activity,
+      timestamp: new Date(activity.timestamp),
+    }))
+
+    // Actions
+    data.actionItems = data.actionItems.map((action: any) => ({
+      ...action,
+      dueDate: action.dueDate ? new Date(action.dueDate) : undefined,
+    }))
+
+    return data
+  }
+
+  // Ajouter un deal
+  addDeal(deal: Omit<Deal, "id">): Deal {
+    const data = this.loadData()
+    const newDeal: Deal = {
+      ...deal,
+      id: Date.now().toString(),
+    }
+    data.topDeals.push(newDeal)
+    this.updateMetrics(data)
+    this.saveData(data)
+    return newDeal
+  }
+
+  // Modifier un deal
+  updateDeal(id: string, updates: Partial<Deal>): Deal | null {
+    const data = this.loadData()
+    const index = data.topDeals.findIndex((d) => d.id === id)
+    if (index === -1) return null
+
+    data.topDeals[index] = { ...data.topDeals[index], ...updates }
+    this.updateMetrics(data)
+    this.saveData(data)
+    return data.topDeals[index]
+  }
+
+  // Supprimer un deal
+  deleteDeal(id: string): boolean {
+    const data = this.loadData()
+    const index = data.topDeals.findIndex((d) => d.id === id)
+    if (index === -1) return false
+
+    data.topDeals.splice(index, 1)
+    this.updateMetrics(data)
+    this.saveData(data)
+    return true
+  }
+
+  // Ajouter un lead
+  addLead(lead: Omit<Lead, "id">): Lead {
+    const data = this.loadData()
+    const newLead: Lead = {
+      ...lead,
+      id: Date.now().toString(),
+    }
+    data.hotLeads.push(newLead)
+    this.updateMetrics(data)
+    this.saveData(data)
+    return newLead
+  }
+
+  // Modifier un lead
+  updateLead(id: string, updates: Partial<Lead>): Lead | null {
+    const data = this.loadData()
+    const index = data.hotLeads.findIndex((l) => l.id === id)
+    if (index === -1) return null
+
+    data.hotLeads[index] = { ...data.hotLeads[index], ...updates }
+    this.updateMetrics(data)
+    this.saveData(data)
+    return data.hotLeads[index]
+  }
+
+  // Ajouter une activité
+  addActivity(activity: Omit<Activity, "id">): Activity {
+    const data = this.loadData()
+    const newActivity: Activity = {
+      ...activity,
+      id: Date.now().toString(),
+    }
+    data.recentActivities.unshift(newActivity)
+    // Garder seulement les 20 dernières
+    data.recentActivities = data.recentActivities.slice(0, 20)
+    this.saveData(data)
+    return newActivity
+  }
+
+  // Ajouter une action
+  addAction(action: Omit<ActionItem, "id">): ActionItem {
+    const data = this.loadData()
+    const newAction: ActionItem = {
+      ...action,
+      id: Date.now().toString(),
+    }
+    data.actionItems.push(newAction)
+    this.saveData(data)
+    return newAction
+  }
+
+  // Modifier une action
+  updateAction(id: string, updates: Partial<ActionItem>): ActionItem | null {
+    const data = this.loadData()
+    const index = data.actionItems.findIndex((a) => a.id === id)
+    if (index === -1) return null
+
+    data.actionItems[index] = { ...data.actionItems[index], ...updates }
+    this.saveData(data)
+    return data.actionItems[index]
+  }
+
+  // Mettre à jour les métriques en fonction des deals
+  private updateMetrics(data: BusinessContext): void {
+    // Calculer le pipeline total
+    data.metrics.pipelineValue = data.topDeals.reduce((sum, deal) => sum + deal.value, 0)
+
+    // Calculer la moyenne des deals
+    if (data.topDeals.length > 0) {
+      data.metrics.averageDealSize = data.metrics.pipelineValue / data.topDeals.length
+    }
+
+    // Calculer le nombre de leads
+    data.metrics.leads = data.hotLeads.length
+
+    // Le reste des métriques peut être mis à jour manuellement par l'utilisateur
+  }
+
+  // Export des données en JSON
+  exportData(): string {
+    const data = this.loadData()
+    return JSON.stringify(data, null, 2)
+  }
+
+  // Import des données depuis JSON
+  importData(jsonString: string): boolean {
+    try {
+      const data = JSON.parse(jsonString)
+      this.saveData(data)
+      return true
+    } catch (error) {
+      console.error("Erreur import:", error)
+      return false
+    }
+  }
+}
+
+export const dataManager = DataManager.getInstance()
