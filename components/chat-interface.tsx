@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Send, Bot, User, Loader2, Sparkles } from "lucide-react"
+import { Send, Bot, User, Loader2, Sparkles, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
 import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
+import { AIContentGenerator } from "@/lib/ai-content-generator"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -52,6 +53,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState("")
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -80,21 +82,120 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
   }, [messages, streamingMessage, disableAutoScroll])
 
+  // Gérer les commandes slash
+  const handleSlashCommand = (command: string): string | null => {
+    const parts = command.trim().split(/\s+/)
+    const cmd = parts[0].toLowerCase()
+    const args = parts.slice(1)
+
+    switch (cmd) {
+      case "/help":
+        return `**Commandes disponibles :**
+
+- \`/email [entreprise]\` - Générer un email de relance
+- \`/proposition [entreprise]\` - Générer une proposition commerciale
+- \`/briefing [entreprise]\` - Générer un briefing de réunion
+- \`/script [contact] [entreprise]\` - Générer un script d'appel
+- \`/summary\` - Générer un résumé quotidien
+- \`/help\` - Afficher cette aide
+
+**Exemples :**
+- \`/email TechCorp\`
+- \`/proposition Innovatech\`
+- \`/briefing DataFlow\`
+- \`/script Marie TechCorp\`
+- \`/summary\``
+
+      case "/email":
+        if (!businessContext?.topDeals || businessContext.topDeals.length === 0) {
+          return "Aucun deal disponible pour générer un email."
+        }
+        // Si un nom d'entreprise est fourni, chercher le deal correspondant
+        if (args.length > 0) {
+          const company = args.join(" ")
+          const deal = businessContext.topDeals.find((d: any) =>
+            d.company.toLowerCase().includes(company.toLowerCase())
+          )
+          if (deal) {
+            return AIContentGenerator.generateFollowUpEmail(deal)
+          } else {
+            return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
+          }
+        } else {
+          // Prendre le premier deal actif
+          const activeDeal = businessContext.topDeals.find((d: any) => d.stage !== "Gagné" && d.stage !== "Perdu")
+          if (activeDeal) {
+            return AIContentGenerator.generateFollowUpEmail(activeDeal)
+          } else {
+            return "Aucun deal actif disponible."
+          }
+        }
+
+      case "/proposition":
+        if (!businessContext?.topDeals || businessContext.topDeals.length === 0) {
+          return "Aucun deal disponible pour générer une proposition."
+        }
+        if (args.length > 0) {
+          const company = args.join(" ")
+          const deal = businessContext.topDeals.find((d: any) =>
+            d.company.toLowerCase().includes(company.toLowerCase())
+          )
+          if (deal) {
+            return AIContentGenerator.generateProposal(deal, businessContext)
+          } else {
+            return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
+          }
+        } else {
+          const activeDeal = businessContext.topDeals.find((d: any) =>
+            d.stage === "Proposition" || d.stage === "Qualification"
+          )
+          if (activeDeal) {
+            return AIContentGenerator.generateProposal(activeDeal, businessContext)
+          } else {
+            return "Aucun deal en phase de proposition disponible."
+          }
+        }
+
+      case "/briefing":
+        if (!businessContext?.topDeals || businessContext.topDeals.length === 0) {
+          return "Aucun deal disponible pour générer un briefing."
+        }
+        if (args.length > 0) {
+          const company = args.join(" ")
+          const deal = businessContext.topDeals.find((d: any) =>
+            d.company.toLowerCase().includes(company.toLowerCase())
+          )
+          if (deal) {
+            return AIContentGenerator.generateMeetingBriefing(deal, businessContext)
+          } else {
+            return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
+          }
+        } else {
+          const activeDeal = businessContext.topDeals[0]
+          return AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext)
+        }
+
+      case "/script":
+        if (args.length < 2) {
+          return "Usage: `/script [contact] [entreprise]`\nExemple: `/script Marie TechCorp`"
+        }
+        const contact = args[0]
+        const company = args.slice(1).join(" ")
+        return AIContentGenerator.generateCallScript(contact, company)
+
+      case "/summary":
+        if (!businessContext) {
+          return "Contexte business non disponible."
+        }
+        return AIContentGenerator.generateDailySummary(businessContext)
+
+      default:
+        return null // Pas une commande slash reconnue
+    }
+  }
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
-
-    // Vérifier que la clé API est configurée
-    if (!geminiClientService.hasApiKey()) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        role: "assistant",
-        content:
-          "Veuillez configurer votre clé API Gemini en cliquant sur le bouton en haut à droite de l'écran.",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
-      return
-    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -104,7 +205,47 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = input
     setInput("")
+
+    // Vérifier si c'est une commande slash
+    if (currentInput.startsWith("/")) {
+      const generatedContent = handleSlashCommand(currentInput)
+      if (generatedContent) {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: generatedContent,
+          timestamp: new Date(),
+          isGenerated: true, // Marquer comme contenu généré
+        }
+        setMessages((prev) => [...prev, assistantMessage])
+        return
+      }
+      // Si la commande n'est pas reconnue, afficher un message d'aide
+      const helpMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Commande non reconnue. Tapez \`/help\` pour voir les commandes disponibles.`,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, helpMessage])
+      return
+    }
+
+    // Vérifier que la clé API est configurée pour les requêtes normales
+    if (!geminiClientService.hasApiKey()) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content:
+          "Veuillez configurer votre clé API Gemini en cliquant sur le bouton en haut à droite de l'écran.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+      return
+    }
+
     setIsLoading(true)
     setStreamingMessage("") // Réinitialiser le message en streaming
 
@@ -152,6 +293,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
       e.preventDefault()
       handleSend()
     }
+  }
+
+  const handleCopy = (content: string, messageId: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedId(messageId)
+      setTimeout(() => setCopiedId(null), 2000)
+    })
   }
 
   // Fonction pour auto-envoyer les questions suggérées
@@ -214,7 +362,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   const suggestedQuestions = [
     "Quelles sont mes opportunités prioritaires ?",
     "Comment améliorer mon taux de conversion ?",
-    "Quel est l'état de mon pipeline ?",
+    "/help",
     "Prépare-moi pour mon RDV avec TechCorp",
   ]
 
@@ -260,21 +408,48 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
                 </Avatar>
 
                 <div className="flex-1 min-w-0 space-y-2">
-                  <div
-                    className={cn(
-                      "rounded-2xl px-4 py-3 max-w-full",
-                      message.role === "assistant"
-                        ? "bg-muted/50"
-                        : "bg-primary text-primary-foreground"
+                  <div className="relative group">
+                    {message.isGenerated && (
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-1 rounded-full">
+                          ✨ Contenu généré
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(message.content, message.id)}
+                          className="h-6 text-xs gap-1"
+                        >
+                          {copiedId === message.id ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Copié
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              Copier
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
-                  >
-                    {message.role === "assistant" ? (
-                      <MarkdownContent content={message.content} />
-                    ) : (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
-                    )}
+                    <div
+                      className={cn(
+                        "rounded-2xl px-4 py-3 max-w-full",
+                        message.role === "assistant"
+                          ? "bg-muted/50"
+                          : "bg-primary text-primary-foreground"
+                      )}
+                    >
+                      {message.role === "assistant" ? (
+                        <MarkdownContent content={message.content} />
+                      ) : (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <span className="text-xs opacity-70 px-1">
                     {message.timestamp.toLocaleTimeString("fr-FR", {
@@ -345,22 +520,29 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
       {/* Input fixe en bas */}
       <div className="border-t bg-background px-4 py-4 shrink-0">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Posez votre question..."
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            size="icon"
-          >
-            <Send className="size-4" />
-          </Button>
+        <div className="max-w-3xl mx-auto">
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Posez votre question ou tapez / pour les commandes..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+              size="icon"
+            >
+              <Send className="size-4" />
+            </Button>
+          </div>
+          {input.startsWith("/") && input.length > 1 && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              💡 Tapez /help pour voir toutes les commandes disponibles
+            </div>
+          )}
         </div>
       </div>
     </div>

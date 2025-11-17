@@ -17,6 +17,8 @@ import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upl
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
+import { AIInsights } from "@/components/ai-insights"
+import { NotificationsPanel } from "@/components/notifications-panel"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
@@ -187,6 +189,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
+                {businessData && <NotificationsPanel businessContext={businessData} />}
                 <Button
                   variant="outline"
                   size="sm"
@@ -261,11 +264,15 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
+            {/* IA Insights en premier */}
+            <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+
             <MetricsDashboard metrics={businessData.metrics} />
 
             <div className="grid gap-6 lg:grid-cols-2">
               <DealsList
                 deals={businessData.topDeals}
+                businessContext={businessData}
                 onAdd={handleAddDeal}
                 onUpdate={handleUpdateDeal}
                 onDelete={handleDeleteDeal}
@@ -308,6 +315,7 @@ export default function Home() {
               <div className="lg:col-span-2">
                 <DealsList
                   deals={businessData.topDeals}
+                  businessContext={businessData}
                   onAdd={handleAddDeal}
                   onUpdate={handleUpdateDeal}
                   onDelete={handleDeleteDeal}

@@ -3,6 +3,7 @@ export interface Message {
   role: "user" | "assistant"
   content: string
   timestamp: Date
+  isGenerated?: boolean // Indique si le contenu a été généré par une commande slash
 }
 
 export interface BusinessMetrics {
