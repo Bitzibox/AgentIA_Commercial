@@ -180,9 +180,11 @@ Tu dois fournir des conseils ultra-personnalisés pour ce deal précis. Utilise 
       label: "📧 Email de relance",
       action: async () => {
         setIsLoading(true)
-        setStreamingMessage("Génération de l'email avec Gemini AI...")
+        setStreamingMessage("")
         try {
-          const email = await AIContentGenerator.generateFollowUpEmail(deal)
+          const email = await AIContentGenerator.generateFollowUpEmail(deal, (text) => {
+            setStreamingMessage(text)
+          })
           const msg: Message = {
             id: Date.now().toString(),
             role: "assistant",
@@ -210,9 +212,11 @@ Tu dois fournir des conseils ultra-personnalisés pour ce deal précis. Utilise 
       label: "📄 Proposition",
       action: async () => {
         setIsLoading(true)
-        setStreamingMessage("Génération de la proposition avec Gemini AI...")
+        setStreamingMessage("")
         try {
-          const proposal = await AIContentGenerator.generateProposal(deal, businessContext)
+          const proposal = await AIContentGenerator.generateProposal(deal, businessContext, (text) => {
+            setStreamingMessage(text)
+          })
           const msg: Message = {
             id: Date.now().toString(),
             role: "assistant",
@@ -240,9 +244,11 @@ Tu dois fournir des conseils ultra-personnalisés pour ce deal précis. Utilise 
       label: "📋 Briefing réunion",
       action: async () => {
         setIsLoading(true)
-        setStreamingMessage("Génération du briefing avec Gemini AI...")
+        setStreamingMessage("")
         try {
-          const briefing = await AIContentGenerator.generateMeetingBriefing(deal, businessContext)
+          const briefing = await AIContentGenerator.generateMeetingBriefing(deal, businessContext, (text) => {
+            setStreamingMessage(text)
+          })
           const msg: Message = {
             id: Date.now().toString(),
             role: "assistant",

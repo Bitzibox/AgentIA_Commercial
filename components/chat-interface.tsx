@@ -83,7 +83,10 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   }, [messages, streamingMessage, disableAutoScroll])
 
   // Gérer les commandes slash (async avec Gemini)
-  const handleSlashCommand = async (command: string): Promise<string | null> => {
+  const handleSlashCommand = async (
+    command: string,
+    onChunk?: (text: string) => void
+  ): Promise<string | null> => {
     const parts = command.trim().split(/\s+/)
     const cmd = parts[0].toLowerCase()
     const args = parts.slice(1)
@@ -119,7 +122,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return await AIContentGenerator.generateFollowUpEmail(deal)
+            return await AIContentGenerator.generateFollowUpEmail(deal, onChunk)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
@@ -127,7 +130,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
           // Prendre le premier deal actif
           const activeDeal = businessContext.topDeals.find((d: any) => d.stage !== "Gagné" && d.stage !== "Perdu")
           if (activeDeal) {
-            return await AIContentGenerator.generateFollowUpEmail(activeDeal)
+            return await AIContentGenerator.generateFollowUpEmail(activeDeal, onChunk)
           } else {
             return "Aucun deal actif disponible."
           }
@@ -143,7 +146,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return await AIContentGenerator.generateProposal(deal, businessContext)
+            return await AIContentGenerator.generateProposal(deal, businessContext, onChunk)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
@@ -152,7 +155,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.stage === "Proposition" || d.stage === "Qualification"
           )
           if (activeDeal) {
-            return await AIContentGenerator.generateProposal(activeDeal, businessContext)
+            return await AIContentGenerator.generateProposal(activeDeal, businessContext, onChunk)
           } else {
             return "Aucun deal en phase de proposition disponible."
           }
@@ -168,13 +171,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return await AIContentGenerator.generateMeetingBriefing(deal, businessContext)
+            return await AIContentGenerator.generateMeetingBriefing(deal, businessContext, onChunk)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
         } else {
           const activeDeal = businessContext.topDeals[0]
-          return await AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext)
+          return await AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext, onChunk)
         }
 
       case "/script":
@@ -183,13 +186,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
         }
         const contact = args[0]
         const company = args.slice(1).join(" ")
-        return await AIContentGenerator.generateCallScript(contact, company)
+        return await AIContentGenerator.generateCallScript(contact, company, undefined, onChunk)
 
       case "/summary":
         if (!businessContext) {
           return "Contexte business non disponible."
         }
-        return await AIContentGenerator.generateDailySummary(businessContext)
+        return await AIContentGenerator.generateDailySummary(businessContext, onChunk)
 
       default:
         return null // Pas une commande slash reconnue
@@ -213,10 +216,12 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     // Vérifier si c'est une commande slash
     if (currentInput.startsWith("/")) {
       setIsLoading(true)
-      setStreamingMessage("Génération en cours avec Gemini AI...")
+      setStreamingMessage("")
 
       try {
-        const generatedContent = await handleSlashCommand(currentInput)
+        const generatedContent = await handleSlashCommand(currentInput, (text) => {
+          setStreamingMessage(text)
+        })
         if (generatedContent) {
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),

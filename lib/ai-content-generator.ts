@@ -3,7 +3,10 @@ import { geminiClientService } from "@/lib/gemini-client"
 
 export class AIContentGenerator {
   // Générer un email de relance personnalisé avec Gemini
-  static async generateFollowUpEmail(deal: Deal): Promise<string> {
+  static async generateFollowUpEmail(
+    deal: Deal,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
     const daysSinceContact = Math.floor(
       (new Date().getTime() - new Date(deal.lastActivity).getTime()) / (1000 * 60 * 60 * 24)
     )
@@ -41,7 +44,11 @@ Bien cordialement,
 💡 Conseil personnalisé: [1-2 lignes de conseil stratégique pour maximiser les chances de réponse]`
 
     try {
-      return await geminiClientService.generateContent(prompt)
+      if (onChunk) {
+        return await geminiClientService.generateContentStream(prompt, onChunk)
+      } else {
+        return await geminiClientService.generateContent(prompt)
+      }
     } catch (error) {
       console.error("Erreur génération email:", error)
       return `**Erreur de génération**\n\nImpossible de générer l'email pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
@@ -49,7 +56,11 @@ Bien cordialement,
   }
 
   // Générer une proposition commerciale structurée avec Gemini
-  static async generateProposal(deal: Deal, context: BusinessContext): Promise<string> {
+  static async generateProposal(
+    deal: Deal,
+    context: BusinessContext,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
     const similarDeals = context.topDeals
       .filter(d => d.stage === "Gagné" && Math.abs(d.value - deal.value) / deal.value < 0.3)
       .slice(0, 2)
@@ -91,7 +102,11 @@ IMPORTANT:
 - Inclus un conseil stratégique en fin de document`
 
     try {
-      return await geminiClientService.generateContent(prompt)
+      if (onChunk) {
+        return await geminiClientService.generateContentStream(prompt, onChunk)
+      } else {
+        return await geminiClientService.generateContent(prompt)
+      }
     } catch (error) {
       console.error("Erreur génération proposition:", error)
       return `**Erreur de génération**\n\nImpossible de générer la proposition pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
@@ -99,7 +114,11 @@ IMPORTANT:
   }
 
   // Générer un briefing pour un RDV avec Gemini
-  static async generateMeetingBriefing(deal: Deal, context: BusinessContext): Promise<string> {
+  static async generateMeetingBriefing(
+    deal: Deal,
+    context: BusinessContext,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
     const relatedActions = context.actionItems.filter(
       a => a.relatedTo?.type === "deal" && a.relatedTo.id === deal.id
     )
@@ -147,7 +166,11 @@ IMPORTANT:
 - Propose une stratégie de closing si deal mature`
 
     try {
-      return await geminiClientService.generateContent(prompt)
+      if (onChunk) {
+        return await geminiClientService.generateContentStream(prompt, onChunk)
+      } else {
+        return await geminiClientService.generateContent(prompt)
+      }
     } catch (error) {
       console.error("Erreur génération briefing:", error)
       return `**Erreur de génération**\n\nImpossible de générer le briefing pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
@@ -155,7 +178,12 @@ IMPORTANT:
   }
 
   // Générer un script d'appel avec Gemini
-  static async generateCallScript(contact: string, company: string, context?: string): Promise<string> {
+  static async generateCallScript(
+    contact: string,
+    company: string,
+    context?: string,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
     const prompt = `Tu es un expert en prospection téléphonique B2B. Génère un script d'appel professionnel et efficace.
 
 CONTEXTE:
@@ -189,7 +217,11 @@ IMPORTANT:
 - Focus sur la valeur, pas sur la vente`
 
     try {
-      return await geminiClientService.generateContent(prompt)
+      if (onChunk) {
+        return await geminiClientService.generateContentStream(prompt, onChunk)
+      } else {
+        return await geminiClientService.generateContent(prompt)
+      }
     } catch (error) {
       console.error("Erreur génération script:", error)
       return `**Erreur de génération**\n\nImpossible de générer le script d'appel pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
@@ -197,7 +229,10 @@ IMPORTANT:
   }
 
   // Générer un résumé de journée avec Gemini
-  static async generateDailySummary(context: BusinessContext): Promise<string> {
+  static async generateDailySummary(
+    context: BusinessContext,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
     const todayActions = context.actionItems.filter(a => {
       if (!a.dueDate) return false
       const today = new Date()
@@ -257,7 +292,11 @@ IMPORTANT:
 Génère un résumé qui donne envie d'attaquer la journée ! 💪`
 
     try {
-      return await geminiClientService.generateContent(prompt)
+      if (onChunk) {
+        return await geminiClientService.generateContentStream(prompt, onChunk)
+      } else {
+        return await geminiClientService.generateContent(prompt)
+      }
     } catch (error) {
       console.error("Erreur génération résumé:", error)
       return `**Erreur de génération**\n\nImpossible de générer le résumé pour le moment. Veuillez vérifier votre clé API Gemini et réessayer.`
