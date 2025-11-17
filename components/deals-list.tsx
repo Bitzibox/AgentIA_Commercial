@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DealDialog } from "@/components/deal-dialog"
+import { DealAnalysis } from "@/components/deal-analysis"
 import { Deal } from "@/types"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
 import { Building2, TrendingUp, Calendar, User, Trash2, Edit } from "lucide-react"
@@ -128,6 +129,13 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
                 <div className="text-sm bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-3 rounded-lg border">
                   <p className="font-medium text-xs text-muted-foreground mb-1">📌 Prochaine étape :</p>
                   <p className="font-medium">{deal.nextStep}</p>
+                </div>
+              )}
+
+              {/* Analyse IA du deal quand expanded */}
+              {expandedId === deal.id && (
+                <div className="pt-3 animate-in slide-in-from-top-2">
+                  <DealAnalysis deal={deal} allDeals={deals} />
                 </div>
               )}
 

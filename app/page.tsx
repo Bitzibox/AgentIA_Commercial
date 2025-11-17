@@ -17,6 +17,7 @@ import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upl
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
+import { AIInsights } from "@/components/ai-insights"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
@@ -261,6 +262,9 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
+            {/* IA Insights en premier */}
+            <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+
             <MetricsDashboard metrics={businessData.metrics} />
 
             <div className="grid gap-6 lg:grid-cols-2">
