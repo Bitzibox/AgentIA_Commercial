@@ -11,6 +11,7 @@ import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
 import { AIContentGenerator } from "@/lib/ai-content-generator"
 import { voiceRecognitionService } from "@/lib/voice-recognition"
+import { TemplatesModal } from "@/components/templates-modal"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -112,6 +113,19 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     } else {
       voiceRecognitionService.start()
     }
+  }
+
+  // Gérer l'application d'un template
+  const handleTemplateApply = (content: string) => {
+    // Ajouter le contenu du template comme message assistant
+    const templateMessage: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content,
+      timestamp: new Date(),
+      isGenerated: true,
+    }
+    setMessages((prev) => [...prev, templateMessage])
   }
 
   // Gérer les commandes slash (async avec Gemini)
@@ -430,9 +444,12 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     <div className="flex flex-col h-full bg-background">
       {/* Header fixe en haut */}
       <div className="border-b bg-background px-6 py-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Copilote Commercial IA</h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Copilote Commercial IA</h2>
+          </div>
+          <TemplatesModal onTemplateApply={handleTemplateApply} />
         </div>
       </div>
 
