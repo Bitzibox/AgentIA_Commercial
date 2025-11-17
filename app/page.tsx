@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ChatInterface } from "@/components/chat-interface"
+import { ConversationsSidebar } from "@/components/conversations-sidebar"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { DealsList } from "@/components/deals-list"
 import { ActionItems } from "@/components/action-items"
@@ -9,17 +10,42 @@ import { ApiKeyDialog } from "@/components/api-key-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { dataManager } from "@/lib/data-manager"
+import { conversationManager } from "@/lib/conversation-manager"
 import { BusinessContext, Deal } from "@/types"
 import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles } from "lucide-react"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
   const [isClient, setIsClient] = useState(false)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+  const [conversationKey, setConversationKey] = useState(0)
 
   useEffect(() => {
     setIsClient(true)
     loadData()
+    initializeConversation()
   }, [])
+
+  const initializeConversation = () => {
+    const conversation = conversationManager.getOrCreateActiveConversation()
+    setActiveConversationId(conversation.id)
+  }
+
+  const handleNewConversation = () => {
+    const newConversation = conversationManager.createConversation()
+    setActiveConversationId(newConversation.id)
+    setConversationKey((prev) => prev + 1) // Force refresh
+  }
+
+  const handleConversationChange = (conversationId: string) => {
+    setActiveConversationId(conversationId)
+    conversationManager.setActiveConversation(conversationId)
+    setConversationKey((prev) => prev + 1) // Force refresh
+  }
+
+  const handleConversationUpdate = () => {
+    setConversationKey((prev) => prev + 1) // Force refresh sidebar
+  }
 
   const loadData = () => {
     const data = dataManager.loadData()
@@ -178,7 +204,7 @@ export default function Home() {
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
+          <TabsContent value="dashboard" className="space-y-6">
             <MetricsDashboard metrics={businessData.metrics} />
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -191,15 +217,30 @@ export default function Home() {
             </div>
           </TabsContent>
 
-          {/* Chat Tab */}
-          <TabsContent value="chat" className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="h-[calc(100vh-250px)]">
-              <ChatInterface businessContext={businessData} />
+          {/* Chat Tab avec Sidebar */}
+          <TabsContent value="chat" className="space-y-6">
+            <div className="flex gap-4 h-[calc(100vh-220px)] min-h-[600px]">
+              <ConversationsSidebar
+                activeConversationId={activeConversationId}
+                onConversationChange={handleConversationChange}
+                onNewConversation={handleNewConversation}
+                key={conversationKey}
+              />
+              <div className="flex-1 overflow-hidden">
+                {activeConversationId && (
+                  <ChatInterface
+                    businessContext={businessData}
+                    conversationId={activeConversationId}
+                    onConversationUpdate={handleConversationUpdate}
+                    key={`chat-${activeConversationId}`}
+                  />
+                )}
+              </div>
             </div>
           </TabsContent>
 
           {/* Deals Tab */}
-          <TabsContent value="deals" className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
+          <TabsContent value="deals" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 <DealsList
@@ -217,7 +258,7 @@ export default function Home() {
           </TabsContent>
 
           {/* Actions Tab */}
-          <TabsContent value="actions" className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
+          <TabsContent value="actions" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">
               <ActionItems items={businessData.actionItems} />
               <div className="h-[600px]">
