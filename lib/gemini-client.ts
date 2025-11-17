@@ -25,6 +25,7 @@ Style de communication :
 - Utilise des exemples concrets
 - Propose toujours des actions à entreprendre
 - En français
+- Utilise le formatage Markdown pour une meilleure lisibilité (titres, listes, tableaux, gras)
 
 Capacités spéciales :
 - Tu peux analyser des données commerciales
@@ -87,7 +88,11 @@ export class GeminiClientService {
     }
   }
 
-  async chat(messages: ChatMessage[], context?: any): Promise<string> {
+  async chatStream(
+    messages: ChatMessage[],
+    context?: any,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
     if (!this.model) {
       throw new Error("Clé API Gemini non configurée. Veuillez configurer votre clé API.")
     }
@@ -120,11 +125,22 @@ export class GeminiClientService {
         ],
       })
 
-      // Envoyer le dernier message
+      // Envoyer le dernier message avec streaming
       const lastMessage = messages[messages.length - 1]
-      const result = await chat.sendMessage(lastMessage.parts)
-      const response = result.response
-      return response.text()
+      const result = await chat.sendMessageStream(lastMessage.parts)
+
+      let fullText = ""
+
+      // Traiter le stream
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text()
+        fullText += chunkText
+        if (onChunk) {
+          onChunk(fullText)
+        }
+      }
+
+      return fullText
     } catch (error: any) {
       console.error("Erreur Gemini:", error)
       if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
@@ -132,6 +148,11 @@ export class GeminiClientService {
       }
       throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre connexion internet et votre clé API.")
     }
+  }
+
+  // Méthode legacy sans streaming (pour compatibilité)
+  async chat(messages: ChatMessage[], context?: any): Promise<string> {
+    return this.chatStream(messages, context)
   }
 }
 
