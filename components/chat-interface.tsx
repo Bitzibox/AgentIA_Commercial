@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Send, Bot, User, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
+import { geminiClientService } from "@/lib/gemini-client"
 
 interface ChatInterfaceProps {
   businessContext?: any
@@ -36,6 +37,19 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
 
+    // Vérifier que la clé API est configurée
+    if (!geminiClientService.hasApiKey()) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content:
+          "Veuillez configurer votre clé API Gemini en cliquant sur le bouton en haut à droite de l'écran.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+      return
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -48,41 +62,28 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role === "user" ? "user" : "model",
-            parts: m.content,
-          })),
-          context: businessContext,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const response = await geminiClientService.chat(
+        [...messages, userMessage].map((m) => ({
+          role: m.role === "user" ? "user" : "model",
+          parts: m.content,
+        })),
+        businessContext
+      )
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.response || "Désolé, je n'ai pas pu générer de réponse.",
+        content: response || "Désolé, je n'ai pas pu générer de réponse.",
         timestamp: new Date(),
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error:", error)
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content:
-          "Désolé, une erreur s'est produite. Assurez-vous que votre clé API Gemini est configurée correctement dans le fichier .env",
+        content: error.message || "Désolé, une erreur s'est produite. Veuillez réessayer.",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])

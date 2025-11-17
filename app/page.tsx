@@ -4,6 +4,7 @@ import { ChatInterface } from "@/components/chat-interface"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { DealsList } from "@/components/deals-list"
 import { ActionItems } from "@/components/action-items"
+import { ApiKeyDialog } from "@/components/api-key-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { demoBusinessContext } from "@/lib/demo-data"
 import { BarChart3, MessageSquare, Target, CheckSquare } from "lucide-react"
@@ -11,6 +12,7 @@ import { BarChart3, MessageSquare, Target, CheckSquare } from "lucide-react"
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      <ApiKeyDialog />
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header */}
         <header className="mb-8">
@@ -106,7 +108,7 @@ export default function Home() {
             Agent Commercial IA v2.0 - Propulsé par Google Gemini
           </p>
           <p className="mt-1">
-            Configurez votre clé API Gemini dans le fichier .env pour commencer
+            Hébergé gratuitement sur GitHub Pages
           </p>
         </footer>
       </div>

@@ -5,7 +5,13 @@ Un assistant commercial intelligent propulsé par Google Gemini, conçu pour êt
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Gemini](https://img.shields.io/badge/Gemini-1.5%20Pro-orange)
+![Gemini](https://img.shields.io/badge/Gemini-1.5%20Flash-orange)
+
+## 🌐 Démo en Ligne
+
+**🎉 Application disponible sur GitHub Pages** : [https://bitzibox.github.io/AgentIA_Commercial/](https://bitzibox.github.io/AgentIA_Commercial/)
+
+Aucune installation requise ! Utilisez directement l'application dans votre navigateur avec votre propre clé API Gemini.
 
 ## ✨ Fonctionnalités
 
@@ -32,19 +38,36 @@ Un assistant commercial intelligent propulsé par Google Gemini, conçu pour êt
 - **Liens contextuels** : Actions liées à vos deals et leads
 - **Suivi de complétion** : Visualisation de votre progression
 
-## 🚀 Installation et Démarrage
+## 🚀 Utilisation (100% Gratuit !)
 
-### Prérequis
+### Option 1 : Utiliser la version en ligne (Recommandé)
 
+1. **Visitez l'application** : [https://bitzibox.github.io/AgentIA_Commercial/](https://bitzibox.github.io/AgentIA_Commercial/)
+
+2. **Obtenez une clé API Gemini gratuite** :
+   - Allez sur [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Créez ou sélectionnez un projet
+   - Générez une clé API (100% gratuit)
+
+3. **Configurez votre clé** :
+   - Cliquez sur le bouton "Configuration Gemini" en haut à droite
+   - Collez votre clé API
+   - Votre clé est stockée localement dans votre navigateur (jamais envoyée à nos serveurs)
+
+4. **C'est prêt !** Commencez à discuter avec votre copilote commercial IA
+
+### Option 2 : Installation locale
+
+#### Prérequis
 - Node.js 18+ installé
-- Une clé API Google Gemini ([Obtenir une clé](https://ai.google.dev/))
+- Une clé API Google Gemini ([Obtenir une clé](https://makersuite.google.com/app/apikey))
 
-### Installation
+#### Installation
 
 1. **Cloner le repository**
 
 ```bash
-git clone https://github.com/votre-username/AgentIA_Commercial.git
+git clone https://github.com/Bitzibox/AgentIA_Commercial.git
 cd AgentIA_Commercial
 ```
 
@@ -54,35 +77,21 @@ cd AgentIA_Commercial
 npm install
 ```
 
-3. **Configurer les variables d'environnement**
-
-Créez un fichier `.env` à la racine du projet :
-
-```env
-GEMINI_API_KEY=votre_cle_api_gemini_ici
-```
-
-Pour obtenir une clé API Gemini :
-- Rendez-vous sur [Google AI Studio](https://makersuite.google.com/app/apikey)
-- Créez un nouveau projet ou sélectionnez-en un existant
-- Générez une clé API
-- Copiez la clé dans votre fichier `.env`
-
-4. **Lancer l'application**
+3. **Lancer en mode développement**
 
 ```bash
 npm run dev
 ```
 
-5. **Ouvrir dans le navigateur**
+4. **Ouvrir dans le navigateur**
 
 Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur.
 
+5. **Configurer votre clé API**
+
+Lors du premier lancement, un dialogue vous demandera votre clé API Gemini.
+
 ## 📖 Guide d'Utilisation
-
-### Premier Démarrage
-
-Au premier lancement, vous verrez une interface avec des **données de démonstration**. C'est parfait pour découvrir les fonctionnalités !
 
 ### Utiliser le Copilote IA
 
@@ -105,99 +114,110 @@ L'application est organisée en 4 onglets :
 3. **🎯 Opportunités** : Liste détaillée de vos deals
 4. **✅ Actions** : To-do list intelligente
 
+### Données de Démonstration
+
+L'application inclut des données réalistes pour tester les fonctionnalités :
+- 4 opportunités (250K€ à 75K€)
+- 3 leads qualifiés
+- 5 activités récentes
+- 5 actions prioritaires
+- Métriques complètes
+
+## 🔧 Déploiement sur GitHub Pages
+
+### Automatique (via GitHub Actions)
+
+Le déploiement se fait automatiquement à chaque push sur la branche `main` ou `master`.
+
+1. **Activez GitHub Pages** :
+   - Allez dans Settings > Pages de votre repository
+   - Source : GitHub Actions
+
+2. **Push vers main** :
+```bash
+git push origin main
+```
+
+3. **Attendez le déploiement** :
+   - Le workflow se lance automatiquement
+   - L'application sera disponible sur `https://[username].github.io/AgentIA_Commercial/`
+
+### Manuel
+
+```bash
+# Build l'application
+npm run build
+
+# Le dossier 'out' contient les fichiers statiques
+# Vous pouvez les déployer sur n'importe quel hébergeur statique
+```
+
 ## 🏗️ Architecture Technique
 
 ### Stack Technologique
 
-- **Framework** : Next.js 15 (App Router)
+- **Framework** : Next.js 15 (Export statique)
 - **Language** : TypeScript 5
 - **UI** : Shadcn/ui + Tailwind CSS
-- **IA** : Google Gemini 1.5 Pro
+- **IA** : Google Gemini 1.5 Flash (côté client)
+- **Déploiement** : GitHub Pages
 - **Styling** : Tailwind CSS avec design system personnalisé
+
+### Pourquoi côté client ?
+
+L'application fonctionne 100% côté client (dans le navigateur) :
+- ✅ Hébergement **gratuit** sur GitHub Pages
+- ✅ **Pas de serveur** requis
+- ✅ Vos données restent **privées** (jamais envoyées à nos serveurs)
+- ✅ **Rapide** et réactif
+- ✅ Fonctionne **hors ligne** (après le premier chargement)
 
 ### Structure du Projet
 
 ```
 AgentIA_Commercial/
-├── app/                      # Pages Next.js (App Router)
-│   ├── api/chat/            # API route pour Gemini
-│   ├── globals.css          # Styles globaux
-│   ├── layout.tsx           # Layout principal
-│   └── page.tsx             # Page d'accueil
-├── components/              # Composants React
-│   ├── ui/                  # Composants UI de base (shadcn)
-│   ├── action-items.tsx     # Gestion des actions
-│   ├── chat-interface.tsx   # Interface de chat
-│   ├── deals-list.tsx       # Liste des opportunités
-│   └── metrics-dashboard.tsx # Tableau de bord métriques
-├── lib/                     # Utilitaires et services
-│   ├── gemini.ts            # Service Gemini AI
-│   ├── utils.ts             # Fonctions utilitaires
-│   └── demo-data.ts         # Données de démonstration
-├── types/                   # Définitions TypeScript
-│   └── index.ts             # Types de l'application
-├── .env.example             # Template variables d'environnement
-├── package.json             # Dépendances
-└── README.md               # Cette documentation
+├── .github/
+│   └── workflows/
+│       └── deploy.yml           # Workflow de déploiement
+├── app/                         # Pages Next.js (App Router)
+│   ├── globals.css              # Styles globaux
+│   ├── layout.tsx               # Layout principal
+│   └── page.tsx                 # Page d'accueil
+├── components/                  # Composants React
+│   ├── ui/                      # Composants UI de base (shadcn)
+│   ├── action-items.tsx         # Gestion des actions
+│   ├── api-key-dialog.tsx       # Configuration clé API
+│   ├── chat-interface.tsx       # Interface de chat
+│   ├── deals-list.tsx           # Liste des opportunités
+│   └── metrics-dashboard.tsx    # Tableau de bord métriques
+├── lib/                         # Utilitaires et services
+│   ├── gemini-client.ts         # Service Gemini (client-side)
+│   ├── utils.ts                 # Fonctions utilitaires
+│   └── demo-data.ts             # Données de démonstration
+├── types/                       # Définitions TypeScript
+│   └── index.ts                 # Types de l'application
+├── public/                      # Fichiers statiques
+│   └── .nojekyll                # Pour GitHub Pages
+├── package.json                 # Dépendances
+└── README.md                    # Cette documentation
 ```
 
-## 🔧 Configuration Avancée
+## 🔒 Sécurité & Confidentialité
 
-### Personnaliser le Système Prompt
+- Votre clé API Gemini est stockée **localement** dans votre navigateur (localStorage)
+- Aucune donnée n'est envoyée à nos serveurs
+- Communication directe entre votre navigateur et l'API Gemini de Google
+- Code source **100% open source** et auditable
 
-Le comportement de l'IA peut être personnalisé dans `lib/gemini.ts` :
-
-```typescript
-const SYSTEM_PROMPT = `Tu es un assistant commercial IA expert...`
-```
-
-### Modifier les Données de Démonstration
-
-Les données de démonstration sont dans `lib/demo-data.ts`. Vous pouvez les modifier pour refléter votre business.
-
-### Intégration avec Votre CRM
-
-Pour connecter vos vraies données :
-
-1. Remplacez les imports de `demo-data.ts` dans `app/page.tsx`
-2. Créez un service pour récupérer vos données réelles
-3. Passez ces données au composant `ChatInterface`
-
-## 🎨 Personnalisation Visuelle
+## 🎨 Personnalisation
 
 ### Thèmes de Couleurs
 
-Les couleurs sont définies dans `app/globals.css` via des variables CSS. Modifiez les valeurs HSL pour personnaliser :
+Les couleurs sont définies dans `app/globals.css` via des variables CSS.
 
-```css
-:root {
-  --primary: 240 5.9% 10%;
-  --secondary: 240 4.8% 95.9%;
-  /* ... */
-}
-```
+### Données de Démonstration
 
-### Composants UI
-
-Tous les composants UI sont dans `components/ui/` et peuvent être personnalisés individuellement.
-
-## 🚀 Déploiement
-
-### Déploiement sur Vercel (Recommandé)
-
-1. Pushez votre code sur GitHub
-2. Importez le projet sur [Vercel](https://vercel.com)
-3. Ajoutez votre `GEMINI_API_KEY` dans les variables d'environnement
-4. Déployez !
-
-### Déploiement sur d'autres plateformes
-
-L'application peut être déployée sur n'importe quelle plateforme supportant Next.js :
-- Netlify
-- Railway
-- Render
-- AWS Amplify
-- etc.
+Modifiez `lib/demo-data.ts` pour adapter les données à votre business.
 
 ## 📊 Fonctionnalités à Venir
 
@@ -209,6 +229,7 @@ L'application peut être déployée sur n'importe quelle plateforme supportant N
 - [ ] Intégration email et calendrier
 - [ ] Analyse prédictive avancée
 - [ ] Mode vocal pour les interactions
+- [ ] Support du mode hors ligne complet
 
 ## 🤝 Contribution
 
@@ -228,17 +249,25 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 Pour toute question ou problème :
 
-1. Consultez la [documentation](https://github.com/votre-username/AgentIA_Commercial/wiki)
-2. Ouvrez une [issue](https://github.com/votre-username/AgentIA_Commercial/issues)
-3. Contactez-nous via [email]
+1. Consultez la [documentation](https://github.com/Bitzibox/AgentIA_Commercial/wiki)
+2. Ouvrez une [issue](https://github.com/Bitzibox/AgentIA_Commercial/issues)
 
 ## 🙏 Remerciements
 
-- Google pour l'API Gemini
+- Google pour l'API Gemini gratuite
 - Vercel pour Next.js
 - shadcn pour les composants UI
 - La communauté open source
 
+## 💰 Coûts
+
+**100% GRATUIT !**
+- Hébergement : Gratuit (GitHub Pages)
+- API Gemini : Gratuite (quota généreux de Google)
+- Aucun frais caché
+
 ---
 
 **Fait avec ❤️ pour les entrepreneurs et dirigeants de TPE/PME**
+
+*Votre copilote commercial intelligent, accessible partout, tout le temps.*
