@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { dataManager } from "@/lib/data-manager"
 import { conversationManager } from "@/lib/conversation-manager"
-import { BusinessContext, Deal } from "@/types"
+import { BusinessContext, Deal, BusinessMetrics, Lead, Activity } from "@/types"
 import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings } from "lucide-react"
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
@@ -66,17 +66,17 @@ export default function Home() {
     loadData()
   }
 
-  const handleUpdateMetrics = (metrics: typeof businessData.metrics) => {
+  const handleUpdateMetrics = (metrics: BusinessMetrics) => {
     dataManager.updateMetricsManually(metrics)
     loadData()
   }
 
-  const handleAddLead = (lead: any) => {
+  const handleAddLead = (lead: Omit<Lead, "id">) => {
     dataManager.addLead(lead)
     loadData()
   }
 
-  const handleUpdateLead = (id: string, updates: any) => {
+  const handleUpdateLead = (id: string, updates: Partial<Lead>) => {
     dataManager.updateLead(id, updates)
     loadData()
   }
@@ -86,7 +86,7 @@ export default function Home() {
     loadData()
   }
 
-  const handleAddActivity = (activity: any) => {
+  const handleAddActivity = (activity: Omit<Activity, "id">) => {
     dataManager.addActivity(activity)
     loadData()
   }
