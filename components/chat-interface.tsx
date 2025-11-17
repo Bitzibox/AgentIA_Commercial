@@ -16,6 +16,7 @@ interface ChatInterfaceProps {
   businessContext?: any
   conversationId: string
   onConversationUpdate?: () => void
+  disableAutoScroll?: boolean
 }
 
 // Composant pour afficher le markdown avec un style plus aéré
@@ -46,7 +47,7 @@ const MarkdownContent = ({ content }: { content: string }) => (
   </ReactMarkdown>
 )
 
-export function ChatInterface({ businessContext, conversationId, onConversationUpdate }: ChatInterfaceProps) {
+export function ChatInterface({ businessContext, conversationId, onConversationUpdate, disableAutoScroll = false }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -74,8 +75,10 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
   // Auto-scroll vers le bas quand il y a de nouveaux messages ou streaming
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, streamingMessage])
+    if (!disableAutoScroll) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages, streamingMessage, disableAutoScroll])
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
