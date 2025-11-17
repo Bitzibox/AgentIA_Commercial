@@ -8,14 +8,15 @@ import { Send, Bot, User, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
 import { geminiClientService } from "@/lib/gemini-client"
+import { conversationManager } from "@/lib/conversation-manager"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
 interface ChatInterfaceProps {
   businessContext?: any
+  conversationId: string
+  onConversationUpdate?: () => void
 }
-
-const CHAT_HISTORY_KEY = "agent-commercial-chat-history"
 
 // Composant pour afficher le markdown avec un style plus aéré
 const MarkdownContent = ({ content }: { content: string }) => (
@@ -45,7 +46,7 @@ const MarkdownContent = ({ content }: { content: string }) => (
   </ReactMarkdown>
 )
 
-export function ChatInterface({ businessContext }: ChatInterfaceProps) {
+export function ChatInterface({ businessContext, conversationId, onConversationUpdate }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -53,49 +54,28 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  // Charger l'historique au montage du composant
+  // Charger les messages de la conversation active
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(CHAT_HISTORY_KEY)
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored)
-          // Reconvertir les dates
-          const messagesWithDates = parsed.map((m: any) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-          }))
-          setMessages(messagesWithDates)
-        } catch (error) {
-          console.error("Erreur chargement historique:", error)
-          setMessages(getInitialMessage())
-        }
-      } else {
-        setMessages(getInitialMessage())
+    if (conversationId) {
+      const conversation = conversationManager.getConversation(conversationId)
+      if (conversation) {
+        setMessages(conversation.messages)
       }
     }
-  }, [])
+  }, [conversationId])
 
-  // Sauvegarder l'historique à chaque changement
+  // Sauvegarder les messages à chaque changement
   useEffect(() => {
-    if (typeof window !== "undefined" && messages.length > 0) {
-      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages))
+    if (conversationId && messages.length > 0) {
+      conversationManager.updateConversation(conversationId, messages)
+      onConversationUpdate?.()
     }
-  }, [messages])
+  }, [messages, conversationId, onConversationUpdate])
 
   // Auto-scroll vers le bas quand il y a de nouveaux messages ou streaming
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, streamingMessage])
-
-  const getInitialMessage = (): Message[] => [
-    {
-      id: "1",
-      role: "assistant",
-      content: "Bonjour ! Je suis votre copilote commercial IA. Je peux vous aider à analyser vos ventes, prioriser vos opportunités, préparer vos rendez-vous clients et bien plus. Comment puis-je vous assister aujourd'hui ?",
-      timestamp: new Date(),
-    },
-  ]
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -171,14 +151,11 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
     }
   }
 
-  // Nouvelle fonction pour auto-envoyer les questions suggérées
+  // Fonction pour auto-envoyer les questions suggérées
   const handleSuggestedClick = (question: string) => {
     setInput(question)
     // Envoyer automatiquement après un court délai pour que l'utilisateur voie la question
     setTimeout(() => {
-      const event = { target: { value: question } } as any
-      setInput(question)
-      // Simuler l'envoi
       if (geminiClientService.hasApiKey() && question.trim() && !isLoading) {
         const userMessage: Message = {
           id: Date.now().toString(),
