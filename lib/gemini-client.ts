@@ -1,9 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
-// Initialize Gemini AI
-const apiKey = process.env.GEMINI_API_KEY || ""
-const genAI = new GoogleGenerativeAI(apiKey)
-
 // System prompt pour l'agent commercial
 const SYSTEM_PROMPT = `Tu es un assistant commercial IA expert, le copilote personnel d'un dirigeant de TPE/PME.
 
@@ -42,33 +38,60 @@ export interface ChatMessage {
   parts: string
 }
 
-export interface GeminiConfig {
-  temperature?: number
-  topK?: number
-  topP?: number
-  maxOutputTokens?: number
-}
+export class GeminiClientService {
+  private genAI: GoogleGenerativeAI | null = null
+  private model: any = null
+  private apiKey: string | null = null
 
-export class GeminiService {
-  private model: any
-  private config: GeminiConfig
-
-  constructor(config?: GeminiConfig) {
-    this.config = {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 2048,
-      ...config,
+  constructor() {
+    // La clé API sera fournie par l'utilisateur
+    if (typeof window !== "undefined") {
+      const storedKey = localStorage.getItem("gemini_api_key")
+      if (storedKey) {
+        this.setApiKey(storedKey)
+      }
     }
+  }
 
-    this.model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro",
-      generationConfig: this.config,
+  setApiKey(key: string) {
+    this.apiKey = key
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gemini_api_key", key)
+    }
+    this.genAI = new GoogleGenerativeAI(key)
+    this.model = this.genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      },
     })
   }
 
+  hasApiKey(): boolean {
+    return !!this.apiKey
+  }
+
+  getApiKey(): string | null {
+    return this.apiKey
+  }
+
+  clearApiKey() {
+    this.apiKey = null
+    this.genAI = null
+    this.model = null
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("gemini_api_key")
+    }
+  }
+
   async chat(messages: ChatMessage[], context?: any): Promise<string> {
+    if (!this.model) {
+      throw new Error("Clé API Gemini non configurée. Veuillez configurer votre clé API.")
+    }
+
     try {
       // Construire l'historique de conversation
       const history = messages.slice(0, -1).map((msg) => ({
@@ -102,61 +125,15 @@ export class GeminiService {
       const result = await chat.sendMessage(lastMessage.parts)
       const response = result.response
       return response.text()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur Gemini:", error)
-      throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre clé API.")
-    }
-  }
-
-  async generateInsight(data: any, query: string): Promise<string> {
-    try {
-      const prompt = `En tant qu'analyste commercial expert, analyse ces données et réponds à la question suivante :
-
-Données :
-${JSON.stringify(data, null, 2)}
-
-Question : ${query}
-
-Fournis une réponse structurée avec :
-1. Analyse des données
-2. Insights clés
-3. Recommandations d'actions`
-
-      const result = await this.model.generateContent(prompt)
-      const response = result.response
-      return response.text()
-    } catch (error) {
-      console.error("Erreur génération insight:", error)
-      throw new Error("Impossible de générer l'insight")
-    }
-  }
-
-  async suggestActions(businessContext: any): Promise<string[]> {
-    try {
-      const prompt = `En tant qu'expert commercial, analyse ce contexte business et suggère 3-5 actions prioritaires concrètes :
-
-${JSON.stringify(businessContext, null, 2)}
-
-Retourne uniquement une liste d'actions au format JSON array de strings.`
-
-      const result = await this.model.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-
-      try {
-        const actions = JSON.parse(text)
-        return Array.isArray(actions) ? actions : []
-      } catch {
-        // Si le parsing JSON échoue, extraire les actions manuellement
-        const lines = text.split("\n").filter((line) => line.trim().startsWith("-") || line.trim().match(/^\d+\./))
-        return lines.map((line) => line.replace(/^[-\d.]\s*/, "").trim())
+      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
+        throw new Error("Clé API Gemini invalide. Veuillez vérifier votre clé API.")
       }
-    } catch (error) {
-      console.error("Erreur suggestion actions:", error)
-      return []
+      throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre connexion internet et votre clé API.")
     }
   }
 }
 
 // Instance singleton
-export const geminiService = new GeminiService()
+export const geminiClientService = new GeminiClientService()
