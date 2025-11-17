@@ -4,12 +4,14 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Send, Bot, User, Loader2, Sparkles, Copy, Check } from "lucide-react"
+import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
 import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
 import { AIContentGenerator } from "@/lib/ai-content-generator"
+import { voiceRecognitionService } from "@/lib/voice-recognition"
+import { TemplatesModal } from "@/components/templates-modal"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -54,6 +56,8 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState("")
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -82,18 +86,63 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
   }, [messages, streamingMessage, disableAutoScroll])
 
-  // Gérer les commandes slash
-  const handleSlashCommand = (command: string): string | null => {
+  // Configuration de la reconnaissance vocale
+  useEffect(() => {
+    // Callback pour les résultats de la reconnaissance
+    voiceRecognitionService.onResult((transcript) => {
+      setInput(transcript)
+      setVoiceError(null)
+    })
+
+    // Callback pour les erreurs
+    voiceRecognitionService.onError((error) => {
+      setVoiceError(error)
+      setTimeout(() => setVoiceError(null), 5000) // Effacer l'erreur après 5s
+    })
+
+    // Callback pour les changements d'état
+    voiceRecognitionService.onStateChange((listening) => {
+      setIsListening(listening)
+    })
+  }, [])
+
+  // Gérer le bouton microphone
+  const handleVoiceToggle = () => {
+    if (isListening) {
+      voiceRecognitionService.stop()
+    } else {
+      voiceRecognitionService.start()
+    }
+  }
+
+  // Gérer l'application d'un template
+  const handleTemplateApply = (content: string) => {
+    // Ajouter le contenu du template comme message assistant
+    const templateMessage: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content,
+      timestamp: new Date(),
+      isGenerated: true,
+    }
+    setMessages((prev) => [...prev, templateMessage])
+  }
+
+  // Gérer les commandes slash (async avec Gemini)
+  const handleSlashCommand = async (
+    command: string,
+    onChunk?: (text: string) => void
+  ): Promise<string | null> => {
     const parts = command.trim().split(/\s+/)
     const cmd = parts[0].toLowerCase()
     const args = parts.slice(1)
 
     switch (cmd) {
       case "/help":
-        return `**Commandes disponibles :**
+        return `**Commandes disponibles (générées par IA) :**
 
-- \`/email [entreprise]\` - Générer un email de relance
-- \`/proposition [entreprise]\` - Générer une proposition commerciale
+- \`/email [entreprise]\` - Générer un email de relance avec Gemini
+- \`/proposition [entreprise]\` - Générer une proposition commerciale complète
 - \`/briefing [entreprise]\` - Générer un briefing de réunion
 - \`/script [contact] [entreprise]\` - Générer un script d'appel
 - \`/summary\` - Générer un résumé quotidien
@@ -104,7 +153,9 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 - \`/proposition Innovatech\`
 - \`/briefing DataFlow\`
 - \`/script Marie TechCorp\`
-- \`/summary\``
+- \`/summary\`
+
+✨ **Toutes les commandes utilisent Gemini AI pour un contenu ultra-personnalisé !**`
 
       case "/email":
         if (!businessContext?.topDeals || businessContext.topDeals.length === 0) {
@@ -117,7 +168,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return AIContentGenerator.generateFollowUpEmail(deal)
+            return await AIContentGenerator.generateFollowUpEmail(deal, onChunk)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
@@ -125,7 +176,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
           // Prendre le premier deal actif
           const activeDeal = businessContext.topDeals.find((d: any) => d.stage !== "Gagné" && d.stage !== "Perdu")
           if (activeDeal) {
-            return AIContentGenerator.generateFollowUpEmail(activeDeal)
+            return await AIContentGenerator.generateFollowUpEmail(activeDeal, onChunk)
           } else {
             return "Aucun deal actif disponible."
           }
@@ -141,7 +192,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return AIContentGenerator.generateProposal(deal, businessContext)
+            return await AIContentGenerator.generateProposal(deal, businessContext, onChunk)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
@@ -150,7 +201,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.stage === "Proposition" || d.stage === "Qualification"
           )
           if (activeDeal) {
-            return AIContentGenerator.generateProposal(activeDeal, businessContext)
+            return await AIContentGenerator.generateProposal(activeDeal, businessContext, onChunk)
           } else {
             return "Aucun deal en phase de proposition disponible."
           }
@@ -166,13 +217,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             d.company.toLowerCase().includes(company.toLowerCase())
           )
           if (deal) {
-            return AIContentGenerator.generateMeetingBriefing(deal, businessContext)
+            return await AIContentGenerator.generateMeetingBriefing(deal, businessContext, onChunk)
           } else {
             return `Deal "${company}" non trouvé. Deals disponibles : ${businessContext.topDeals.map((d: any) => d.company).join(", ")}`
           }
         } else {
           const activeDeal = businessContext.topDeals[0]
-          return AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext)
+          return await AIContentGenerator.generateMeetingBriefing(activeDeal, businessContext, onChunk)
         }
 
       case "/script":
@@ -181,13 +232,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
         }
         const contact = args[0]
         const company = args.slice(1).join(" ")
-        return AIContentGenerator.generateCallScript(contact, company)
+        return await AIContentGenerator.generateCallScript(contact, company, undefined, onChunk)
 
       case "/summary":
         if (!businessContext) {
           return "Contexte business non disponible."
         }
-        return AIContentGenerator.generateDailySummary(businessContext)
+        return await AIContentGenerator.generateDailySummary(businessContext, onChunk)
 
       default:
         return null // Pas une commande slash reconnue
@@ -210,27 +261,50 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
     // Vérifier si c'est une commande slash
     if (currentInput.startsWith("/")) {
-      const generatedContent = handleSlashCommand(currentInput)
-      if (generatedContent) {
-        const assistantMessage: Message = {
+      setIsLoading(true)
+      setStreamingMessage("")
+
+      try {
+        const generatedContent = await handleSlashCommand(currentInput, (text) => {
+          setStreamingMessage(text)
+        })
+        if (generatedContent) {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: generatedContent,
+            timestamp: new Date(),
+            isGenerated: true, // Marquer comme contenu généré
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setStreamingMessage("")
+          setIsLoading(false)
+          return
+        }
+        // Si la commande n'est pas reconnue, afficher un message d'aide
+        const helpMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: generatedContent,
+          content: `Commande non reconnue. Tapez \`/help\` pour voir les commandes disponibles.`,
           timestamp: new Date(),
-          isGenerated: true, // Marquer comme contenu généré
         }
-        setMessages((prev) => [...prev, assistantMessage])
+        setMessages((prev) => [...prev, helpMessage])
+        setStreamingMessage("")
+        setIsLoading(false)
+        return
+      } catch (error) {
+        console.error("Erreur commande slash:", error)
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Erreur lors de la génération du contenu. Vérifiez votre clé API Gemini.`,
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, errorMessage])
+        setStreamingMessage("")
+        setIsLoading(false)
         return
       }
-      // Si la commande n'est pas reconnue, afficher un message d'aide
-      const helpMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Commande non reconnue. Tapez \`/help\` pour voir les commandes disponibles.`,
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, helpMessage])
-      return
     }
 
     // Vérifier que la clé API est configurée pour les requêtes normales
@@ -370,9 +444,12 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     <div className="flex flex-col h-full bg-background">
       {/* Header fixe en haut */}
       <div className="border-b bg-background px-6 py-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Copilote Commercial IA</h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Copilote Commercial IA</h2>
+          </div>
+          <TemplatesModal onTemplateApply={handleTemplateApply} />
         </div>
       </div>
 
@@ -521,6 +598,23 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
       {/* Input fixe en bas */}
       <div className="border-t bg-background px-4 py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
+          {/* Affichage des erreurs vocales */}
+          {voiceError && (
+            <div className="mb-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900">
+              <p className="text-xs text-red-600 dark:text-red-400">{voiceError}</p>
+            </div>
+          )}
+
+          {/* Indicateur d'écoute */}
+          {isListening && (
+            <div className="mb-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 animate-pulse">
+              <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                <Mic className="h-3 w-3" />
+                Écoute en cours... Parlez maintenant
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Input
               value={input}
@@ -530,6 +624,24 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
               disabled={isLoading}
               className="flex-1"
             />
+            {/* Bouton microphone */}
+            {voiceRecognitionService.isSupported() && (
+              <Button
+                onClick={handleVoiceToggle}
+                disabled={isLoading}
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                className={cn(
+                  isListening && "animate-pulse"
+                )}
+              >
+                {isListening ? (
+                  <MicOff className="size-4" />
+                ) : (
+                  <Mic className="size-4" />
+                )}
+              </Button>
+            )}
             <Button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}

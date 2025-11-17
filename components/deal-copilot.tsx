@@ -178,44 +178,98 @@ Tu dois fournir des conseils ultra-personnalisés pour ce deal précis. Utilise 
   const quickActions = [
     {
       label: "📧 Email de relance",
-      action: () => {
-        const email = AIContentGenerator.generateFollowUpEmail(deal)
-        const msg: Message = {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: email,
-          timestamp: new Date(),
-          isGenerated: true,
+      action: async () => {
+        setIsLoading(true)
+        setStreamingMessage("")
+        try {
+          const email = await AIContentGenerator.generateFollowUpEmail(deal, (text) => {
+            setStreamingMessage(text)
+          })
+          const msg: Message = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: email,
+            timestamp: new Date(),
+            isGenerated: true,
+          }
+          setMessages((prev) => [...prev, msg])
+        } catch (error) {
+          console.error("Erreur génération email:", error)
+          const errorMsg: Message = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Erreur lors de la génération de l'email. Vérifiez votre clé API Gemini.",
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, errorMsg])
+        } finally {
+          setStreamingMessage("")
+          setIsLoading(false)
         }
-        setMessages((prev) => [...prev, msg])
       },
     },
     {
       label: "📄 Proposition",
-      action: () => {
-        const proposal = AIContentGenerator.generateProposal(deal, businessContext)
-        const msg: Message = {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: proposal,
-          timestamp: new Date(),
-          isGenerated: true,
+      action: async () => {
+        setIsLoading(true)
+        setStreamingMessage("")
+        try {
+          const proposal = await AIContentGenerator.generateProposal(deal, businessContext, (text) => {
+            setStreamingMessage(text)
+          })
+          const msg: Message = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: proposal,
+            timestamp: new Date(),
+            isGenerated: true,
+          }
+          setMessages((prev) => [...prev, msg])
+        } catch (error) {
+          console.error("Erreur génération proposition:", error)
+          const errorMsg: Message = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Erreur lors de la génération de la proposition. Vérifiez votre clé API Gemini.",
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, errorMsg])
+        } finally {
+          setStreamingMessage("")
+          setIsLoading(false)
         }
-        setMessages((prev) => [...prev, msg])
       },
     },
     {
       label: "📋 Briefing réunion",
-      action: () => {
-        const briefing = AIContentGenerator.generateMeetingBriefing(deal, businessContext)
-        const msg: Message = {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: briefing,
-          timestamp: new Date(),
-          isGenerated: true,
+      action: async () => {
+        setIsLoading(true)
+        setStreamingMessage("")
+        try {
+          const briefing = await AIContentGenerator.generateMeetingBriefing(deal, businessContext, (text) => {
+            setStreamingMessage(text)
+          })
+          const msg: Message = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: briefing,
+            timestamp: new Date(),
+            isGenerated: true,
+          }
+          setMessages((prev) => [...prev, msg])
+        } catch (error) {
+          console.error("Erreur génération briefing:", error)
+          const errorMsg: Message = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Erreur lors de la génération du briefing. Vérifiez votre clé API Gemini.",
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, errorMsg])
+        } finally {
+          setStreamingMessage("")
+          setIsLoading(false)
         }
-        setMessages((prev) => [...prev, msg])
       },
     },
   ]

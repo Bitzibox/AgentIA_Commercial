@@ -87,6 +87,56 @@ export class GeminiClientService {
     }
   }
 
+  // Méthode simple pour générer du contenu à partir d'un prompt
+  async generateContent(prompt: string): Promise<string> {
+    if (!this.model) {
+      throw new Error("Clé API Gemini non configurée. Veuillez configurer votre clé API.")
+    }
+
+    try {
+      const result = await this.model.generateContent(prompt)
+      const response = result.response
+      return response.text()
+    } catch (error: any) {
+      console.error("Erreur Gemini:", error)
+      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
+        throw new Error("Clé API Gemini invalide. Veuillez vérifier votre clé API.")
+      }
+      throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre connexion internet et votre clé API.")
+    }
+  }
+
+  // Méthode avec streaming pour génération de contenu progressive
+  async generateContentStream(
+    prompt: string,
+    onChunk?: (text: string) => void
+  ): Promise<string> {
+    if (!this.model) {
+      throw new Error("Clé API Gemini non configurée. Veuillez configurer votre clé API.")
+    }
+
+    try {
+      const result = await this.model.generateContentStream(prompt)
+
+      let fullText = ""
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text()
+        fullText += chunkText
+        if (onChunk) {
+          onChunk(fullText) // Appeler le callback avec le texte accumulé
+        }
+      }
+
+      return fullText
+    } catch (error: any) {
+      console.error("Erreur Gemini:", error)
+      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
+        throw new Error("Clé API Gemini invalide. Veuillez vérifier votre clé API.")
+      }
+      throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre connexion internet et votre clé API.")
+    }
+  }
+
   async chat(messages: ChatMessage[], context?: any): Promise<string> {
     if (!this.model) {
       throw new Error("Clé API Gemini non configurée. Veuillez configurer votre clé API.")

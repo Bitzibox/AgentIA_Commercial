@@ -1,11 +1,14 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Deal } from "@/types"
 import { AIInsightsEngine } from "@/lib/ai-insights"
+import { AIInsightsGeminiEngine } from "@/lib/ai-insights-gemini"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { TrendingUp, AlertTriangle, Clock, Lightbulb, Building2 } from "lucide-react"
+import { TrendingUp, AlertTriangle, Clock, Lightbulb, Building2, Zap, Loader2 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 
 interface DealAnalysisProps {
@@ -14,7 +17,42 @@ interface DealAnalysisProps {
 }
 
 export function DealAnalysis({ deal, allDeals }: DealAnalysisProps) {
-  const analysis = AIInsightsEngine.analyzeDeal(deal, allDeals)
+  const [useGemini, setUseGemini] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [analysis, setAnalysis] = useState<any>(null)
+
+  useEffect(() => {
+    const analyzeNow = async () => {
+      setIsLoading(true)
+      try {
+        if (useGemini) {
+          const result = await AIInsightsGeminiEngine.analyzeDeal(deal, allDeals)
+          setAnalysis(result)
+        } else {
+          const result = AIInsightsEngine.analyzeDeal(deal, allDeals)
+          setAnalysis(result)
+        }
+      } catch (error) {
+        console.error("Erreur analyse deal:", error)
+        // Fallback sur règles
+        const result = AIInsightsEngine.analyzeDeal(deal, allDeals)
+        setAnalysis(result)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    analyzeNow()
+  }, [deal, allDeals, useGemini])
+
+  if (!analysis) {
+    return (
+      <Card className="border-2 border-purple-200/50">
+        <CardContent className="p-6 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+        </CardContent>
+      </Card>
+    )
+  }
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -41,9 +79,30 @@ export function DealAnalysis({ deal, allDeals }: DealAnalysisProps) {
   return (
     <Card className="border-2 border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/30 to-pink-50/30 dark:from-purple-950/20 dark:to-pink-950/20">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-purple-600" />
-          <CardTitle className="text-base">Analyse IA du deal</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 text-purple-600 animate-spin" />
+            ) : (
+              <Lightbulb className="h-5 w-5 text-purple-600" />
+            )}
+            <CardTitle className="text-base flex items-center gap-2">
+              Analyse IA du deal
+              {useGemini && <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 text-xs">✨ Gemini</Badge>}
+            </CardTitle>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUseGemini(!useGemini)}
+            className={cn(
+              "h-7 text-xs gap-1.5",
+              useGemini && "text-purple-600"
+            )}
+          >
+            <Zap className="h-3 w-3" />
+            {useGemini ? "Gemini" : "Règles"}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -89,16 +148,31 @@ export function DealAnalysis({ deal, allDeals }: DealAnalysisProps) {
             💡 Recommandation IA
           </h4>
           <p className="text-sm leading-relaxed">{analysis.recommendation}</p>
+
+          {/* Insights clés (si Gemini) */}
+          {analysis.keyInsights && analysis.keyInsights.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+              <p className="text-xs font-medium mb-2 text-purple-700 dark:text-purple-300">Insights clés :</p>
+              <ul className="space-y-1">
+                {analysis.keyInsights.map((insight: string, idx: number) => (
+                  <li key={idx} className="text-xs text-purple-900 dark:text-purple-100 flex items-start gap-1.5">
+                    <span className="text-purple-600 mt-0.5">•</span>
+                    <span>{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Deals similaires */}
-        {analysis.similarDeals.length > 0 && (
+        {analysis.similarDeals && analysis.similarDeals.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-medium flex items-center gap-2">
               <Building2 className="h-4 w-4 text-purple-600" />
               Deals similaires
             </h4>
-            {analysis.similarDeals.map((similarDeal) => (
+            {analysis.similarDeals.map((similarDeal: Deal) => (
               <div
                 key={similarDeal.id}
                 className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border text-sm"
