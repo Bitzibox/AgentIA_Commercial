@@ -8,10 +8,40 @@ import { Send, Bot, User, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
 import { geminiClientService } from "@/lib/gemini-client"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface ChatInterfaceProps {
   businessContext?: any
 }
+
+// Composant pour afficher le markdown avec un beau style
+const MarkdownContent = ({ content }: { content: string }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    className="prose prose-sm dark:prose-invert max-w-none
+      prose-headings:font-bold prose-headings:text-foreground
+      prose-h1:text-xl prose-h1:mt-4 prose-h1:mb-3
+      prose-h2:text-lg prose-h2:mt-3 prose-h2:mb-2
+      prose-h3:text-base prose-h3:mt-2 prose-h3:mb-1.5
+      prose-p:my-1.5 prose-p:leading-7 prose-p:text-foreground
+      prose-strong:text-foreground prose-strong:font-semibold
+      prose-ul:my-2 prose-ul:list-disc prose-ul:pl-4
+      prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-4
+      prose-li:my-1 prose-li:text-foreground
+      prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+      prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg prose-pre:overflow-x-auto
+      prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic
+      prose-hr:my-4 prose-hr:border-border
+      prose-table:border-collapse prose-table:w-full prose-table:my-3
+      prose-th:border prose-th:border-border prose-th:px-4 prose-th:py-2 prose-th:bg-muted
+      prose-td:border prose-td:border-border prose-td:px-4 prose-td:py-2
+      prose-a:text-primary prose-a:underline prose-a:underline-offset-2
+      break-words"
+  >
+    {content}
+  </ReactMarkdown>
+)
 
 export function ChatInterface({ businessContext }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
@@ -160,13 +190,17 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
                     className={cn(
                       "rounded-2xl px-4 py-3 max-w-full",
                       message.role === "assistant"
-                        ? "bg-muted"
+                        ? "bg-muted/50"
                         : "bg-primary text-primary-foreground"
                     )}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                      {message.content}
-                    </p>
+                    {message.role === "assistant" ? (
+                      <MarkdownContent content={message.content} />
+                    ) : (
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    )}
                   </div>
                   <span className="text-xs opacity-70 px-1">
                     {message.timestamp.toLocaleTimeString("fr-FR", {
@@ -191,15 +225,13 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
 
                 <div className="flex-1 min-w-0 space-y-2">
                   {streamingMessage ? (
-                    // Affichage du texte en streaming
-                    <div className="rounded-2xl px-4 py-3 bg-muted max-w-full">
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                        {streamingMessage}
-                      </p>
+                    // Affichage du texte en streaming avec markdown
+                    <div className="rounded-2xl px-4 py-3 bg-muted/50 max-w-full">
+                      <MarkdownContent content={streamingMessage} />
                     </div>
                   ) : (
                     // Indicateur de chargement initial
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3">
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted/50 px-4 py-3">
                       <Loader2 className="size-4 animate-spin" />
                       <span className="text-sm text-muted-foreground">
                         Analyse en cours...
@@ -222,7 +254,7 @@ export function ChatInterface({ businessContext }: ChatInterfaceProps) {
                   <Button
                     key={index}
                     variant="outline"
-                    className="justify-start text-left h-auto py-2 px-3"
+                    className="justify-start text-left h-auto py-2 px-3 hover:bg-primary/5"
                     onClick={() => setInput(question)}
                   >
                     <span className="text-sm">{question}</span>

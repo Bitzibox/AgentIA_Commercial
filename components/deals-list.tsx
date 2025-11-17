@@ -45,11 +45,11 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
   }
 
   return (
-    <Card className="shadow-lg border-2">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-b">
+    <Card className="shadow-xl border-2 border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+      <CardHeader className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-950/50 dark:to-purple-950/50 border-b border-slate-200/50 dark:border-slate-800/50">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600">
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg">
               <Building2 className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -75,9 +75,11 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
               key={deal.id}
               className={cn(
                 "flex flex-col gap-3 p-4 border-2 rounded-xl transition-all duration-300 cursor-pointer",
-                "hover:border-primary hover:shadow-md hover:scale-[1.02]",
-                expandedId === deal.id && "border-primary shadow-lg",
-                "animate-in slide-in-from-bottom-3"
+                "bg-gradient-to-br from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-800/50",
+                "hover:border-blue-400 dark:hover:border-purple-500 hover:shadow-xl hover:shadow-blue-100/50 dark:hover:shadow-purple-900/20 hover:scale-[1.02]",
+                expandedId === deal.id && "border-purple-500 shadow-xl shadow-purple-100/50 dark:shadow-purple-900/30",
+                "animate-in slide-in-from-bottom-3",
+                "border-slate-200 dark:border-slate-700"
               )}
               style={{ animationDelay: `${index * 50}ms` }}
               onClick={() => setExpandedId(expandedId === deal.id ? null : deal.id)}
