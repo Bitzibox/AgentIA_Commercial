@@ -4,12 +4,13 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Send, Bot, User, Loader2, Sparkles, Copy, Check } from "lucide-react"
+import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
 import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
 import { AIContentGenerator } from "@/lib/ai-content-generator"
+import { voiceRecognitionService } from "@/lib/voice-recognition"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -54,6 +55,8 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState("")
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -81,6 +84,35 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }
   }, [messages, streamingMessage, disableAutoScroll])
+
+  // Configuration de la reconnaissance vocale
+  useEffect(() => {
+    // Callback pour les résultats de la reconnaissance
+    voiceRecognitionService.onResult((transcript) => {
+      setInput(transcript)
+      setVoiceError(null)
+    })
+
+    // Callback pour les erreurs
+    voiceRecognitionService.onError((error) => {
+      setVoiceError(error)
+      setTimeout(() => setVoiceError(null), 5000) // Effacer l'erreur après 5s
+    })
+
+    // Callback pour les changements d'état
+    voiceRecognitionService.onStateChange((listening) => {
+      setIsListening(listening)
+    })
+  }, [])
+
+  // Gérer le bouton microphone
+  const handleVoiceToggle = () => {
+    if (isListening) {
+      voiceRecognitionService.stop()
+    } else {
+      voiceRecognitionService.start()
+    }
+  }
 
   // Gérer les commandes slash (async avec Gemini)
   const handleSlashCommand = async (
@@ -549,6 +581,23 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
       {/* Input fixe en bas */}
       <div className="border-t bg-background px-4 py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
+          {/* Affichage des erreurs vocales */}
+          {voiceError && (
+            <div className="mb-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900">
+              <p className="text-xs text-red-600 dark:text-red-400">{voiceError}</p>
+            </div>
+          )}
+
+          {/* Indicateur d'écoute */}
+          {isListening && (
+            <div className="mb-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 animate-pulse">
+              <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                <Mic className="h-3 w-3" />
+                Écoute en cours... Parlez maintenant
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Input
               value={input}
@@ -558,6 +607,24 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
               disabled={isLoading}
               className="flex-1"
             />
+            {/* Bouton microphone */}
+            {voiceRecognitionService.isSupported() && (
+              <Button
+                onClick={handleVoiceToggle}
+                disabled={isLoading}
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                className={cn(
+                  isListening && "animate-pulse"
+                )}
+              >
+                {isListening ? (
+                  <MicOff className="size-4" />
+                ) : (
+                  <Mic className="size-4" />
+                )}
+              </Button>
+            )}
             <Button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
