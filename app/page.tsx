@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { dataManager } from "@/lib/data-manager"
 import { BusinessContext, Deal } from "@/types"
-import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload } from "lucide-react"
+import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles } from "lucide-react"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
