@@ -4,10 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { AddDealDialog } from "@/components/add-deal-dialog"
+import { DealDialog } from "@/components/deal-dialog"
 import { Deal } from "@/types"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
-import { Building2, TrendingUp, Calendar, User, Trash2, Edit, MoreVertical } from "lucide-react"
+import { Building2, TrendingUp, Calendar, User, Trash2, Edit } from "lucide-react"
 
 interface DealsListProps {
   deals: Deal[]
@@ -44,6 +44,16 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
     }
   }
 
+  const handleSave = (dealData: Omit<Deal, "id"> | Deal) => {
+    if ("id" in dealData) {
+      // Mode édition
+      onUpdate?.(dealData.id, dealData)
+    } else {
+      // Mode création
+      onAdd?.(dealData)
+    }
+  }
+
   return (
     <Card className="shadow-xl border-2 border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
       <CardHeader className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-950/50 dark:to-purple-950/50 border-b border-slate-200/50 dark:border-slate-800/50">
@@ -59,7 +69,7 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
               </div>
             </div>
           </CardTitle>
-          {onAdd && <AddDealDialog onAdd={onAdd} />}
+          {onAdd && <DealDialog onSave={handleSave} />}
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-6">
@@ -129,6 +139,23 @@ export function DealsList({ deals, onAdd, onUpdate, onDelete }: DealsListProps) 
 
                 {(onUpdate || onDelete) && (
                   <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    {onUpdate && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <DealDialog
+                          deal={deal}
+                          onSave={handleSave}
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          }
+                        />
+                      </div>
+                    )}
                     {onDelete && (
                       <Button
                         variant="ghost"
