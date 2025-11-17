@@ -62,7 +62,7 @@ export function MetricsDashboard({ metrics }: MetricsDashboardProps) {
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
       {metricsCards.map((metric, index) => {
         const Icon = metric.icon
         const isPositive = metric.change > 0
@@ -78,24 +78,24 @@ export function MetricsDashboard({ metrics }: MetricsDashboardProps) {
             <div className={cn("absolute inset-0 bg-gradient-to-br opacity-30", metric.bgGradient)} />
 
             {/* Contenu */}
-            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3 px-4 pt-4">
+              <CardTitle className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide truncate pr-2">
                 {metric.title}
               </CardTitle>
-              <div className={cn("p-2.5 rounded-xl bg-gradient-to-br", metric.color, "bg-opacity-10")}>
-                <Icon className={cn("h-5 w-5", metric.color)} />
+              <div className={cn("p-2 rounded-xl", metric.color, "bg-opacity-10 shrink-0")}>
+                <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", metric.color)} />
               </div>
             </CardHeader>
 
-            <CardContent className="relative">
-              {/* Valeur principale - Plus grande et avec retour à la ligne si nécessaire */}
-              <div className="text-3xl md:text-4xl font-bold text-foreground mb-2 break-words leading-tight">
+            <CardContent className="relative px-4 pb-4">
+              {/* Valeur principale - Taille réduite pour tenir sur une ligne */}
+              <div className="text-2xl sm:text-3xl font-bold text-foreground mb-2 leading-tight">
                 {metric.value}
               </div>
 
               {/* Indicateur de tendance */}
               {hasChange && (
-                <div className="flex items-center gap-1.5 text-sm">
+                <div className="flex items-center gap-1.5 text-sm flex-wrap">
                   <TrendIcon
                     className={cn(
                       "h-4 w-4 shrink-0",
@@ -103,13 +103,13 @@ export function MetricsDashboard({ metrics }: MetricsDashboardProps) {
                     )}
                   />
                   <span className={cn(
-                    "font-semibold",
+                    "font-semibold whitespace-nowrap",
                     isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                   )}>
                     {isPositive ? "+" : ""}
                     {formatPercent(Math.abs(metric.change))}
                   </span>
-                  <span className="text-muted-foreground text-xs">vs mois dernier</span>
+                  <span className="text-muted-foreground text-xs whitespace-nowrap">vs mois dernier</span>
                 </div>
               )}
 
