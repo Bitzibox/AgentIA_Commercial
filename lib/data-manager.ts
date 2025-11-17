@@ -26,7 +26,10 @@ export class DataManager {
       try {
         const parsed = JSON.parse(stored)
         // Reconvertir les dates
-        return this.hydrateDates(parsed)
+        const data = this.hydrateDates(parsed)
+        // Trier les deals par date décroissante (plus récent en premier)
+        data.topDeals.sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())
+        return data
       } catch (error) {
         console.error("Erreur chargement données:", error)
         return demoBusinessContext
@@ -34,8 +37,11 @@ export class DataManager {
     }
 
     // Première utilisation : sauvegarder les données de démo
-    this.saveData(demoBusinessContext)
-    return demoBusinessContext
+    const data = { ...demoBusinessContext }
+    // Trier les deals par date décroissante (plus récent en premier)
+    data.topDeals.sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())
+    this.saveData(data)
+    return data
   }
 
   // Sauvegarder les données
