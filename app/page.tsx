@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { ConversationsSidebar } from "@/components/conversations-sidebar"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
@@ -31,21 +31,21 @@ export default function Home() {
     setActiveConversationId(conversation.id)
   }
 
-  const handleNewConversation = () => {
+  const handleNewConversation = useCallback(() => {
     const newConversation = conversationManager.createConversation()
     setActiveConversationId(newConversation.id)
     setConversationKey((prev) => prev + 1) // Force refresh
-  }
+  }, [])
 
-  const handleConversationChange = (conversationId: string) => {
+  const handleConversationChange = useCallback((conversationId: string) => {
     setActiveConversationId(conversationId)
     conversationManager.setActiveConversation(conversationId)
     setConversationKey((prev) => prev + 1) // Force refresh
-  }
+  }, [])
 
-  const handleConversationUpdate = () => {
+  const handleConversationUpdate = useCallback(() => {
     setConversationKey((prev) => prev + 1) // Force refresh sidebar
-  }
+  }, [])
 
   const loadData = () => {
     const data = dataManager.loadData()
@@ -256,6 +256,7 @@ export default function Home() {
                       businessContext={businessData}
                       conversationId={activeConversationId}
                       onConversationUpdate={handleConversationUpdate}
+                      key={`chat-deals-${activeConversationId}`}
                     />
                   )}
                 </div>
@@ -273,6 +274,7 @@ export default function Home() {
                     businessContext={businessData}
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
+                    key={`chat-actions-${activeConversationId}`}
                   />
                 )}
               </div>
