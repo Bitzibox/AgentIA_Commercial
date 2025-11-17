@@ -25,7 +25,6 @@ Style de communication :
 - Utilise des exemples concrets
 - Propose toujours des actions à entreprendre
 - En français
-- Utilise le formatage Markdown pour une meilleure lisibilité (titres, listes, tableaux, gras)
 
 Capacités spéciales :
 - Tu peux analyser des données commerciales
@@ -88,6 +87,54 @@ export class GeminiClientService {
     }
   }
 
+  async chat(messages: ChatMessage[], context?: any): Promise<string> {
+    if (!this.model) {
+      throw new Error("Clé API Gemini non configurée. Veuillez configurer votre clé API.")
+    }
+
+    try {
+      // Construire l'historique de conversation
+      const history = messages.slice(0, -1).map((msg) => ({
+        role: msg.role,
+        parts: [{ text: msg.parts }],
+      }))
+
+      // Ajouter le contexte business si disponible
+      let systemMessage = SYSTEM_PROMPT
+      if (context) {
+        systemMessage += `\n\nContexte business actuel :\n${JSON.stringify(context, null, 2)}`
+      }
+
+      // Démarrer une session de chat
+      const chat = this.model.startChat({
+        history: [
+          {
+            role: "user",
+            parts: [{ text: systemMessage }],
+          },
+          {
+            role: "model",
+            parts: [{ text: "Compris. Je suis prêt à vous assister dans vos activités commerciales." }],
+          },
+          ...history,
+        ],
+      })
+
+      // Envoyer le dernier message
+      const lastMessage = messages[messages.length - 1]
+      const result = await chat.sendMessage(lastMessage.parts)
+      const response = result.response
+      return response.text()
+    } catch (error: any) {
+      console.error("Erreur Gemini:", error)
+      if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("API key")) {
+        throw new Error("Clé API Gemini invalide. Veuillez vérifier votre clé API.")
+      }
+      throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre connexion internet et votre clé API.")
+    }
+  }
+
+  // Méthode avec streaming pour affichage progressif à la ChatGPT
   async chatStream(
     messages: ChatMessage[],
     context?: any,
@@ -130,13 +177,11 @@ export class GeminiClientService {
       const result = await chat.sendMessageStream(lastMessage.parts)
 
       let fullText = ""
-
-      // Traiter le stream
       for await (const chunk of result.stream) {
         const chunkText = chunk.text()
         fullText += chunkText
         if (onChunk) {
-          onChunk(fullText)
+          onChunk(fullText) // Appeler le callback avec le texte accumulé
         }
       }
 
@@ -148,11 +193,6 @@ export class GeminiClientService {
       }
       throw new Error("Impossible de communiquer avec Gemini. Vérifiez votre connexion internet et votre clé API.")
     }
-  }
-
-  // Méthode legacy sans streaming (pour compatibilité)
-  async chat(messages: ChatMessage[], context?: any): Promise<string> {
-    return this.chatStream(messages, context)
   }
 }
 
