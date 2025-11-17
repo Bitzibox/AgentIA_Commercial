@@ -18,6 +18,7 @@ import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
 import { AIInsights } from "@/components/ai-insights"
+import { NotificationsPanel } from "@/components/notifications-panel"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
@@ -188,6 +189,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
+                {businessData && <NotificationsPanel businessContext={businessData} />}
                 <Button
                   variant="outline"
                   size="sm"
