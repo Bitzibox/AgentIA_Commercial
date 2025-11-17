@@ -148,6 +148,18 @@ export class DataManager {
     return data.hotLeads[index]
   }
 
+  // Supprimer un lead
+  deleteLead(id: string): boolean {
+    const data = this.loadData()
+    const index = data.hotLeads.findIndex((l) => l.id === id)
+    if (index === -1) return false
+
+    data.hotLeads.splice(index, 1)
+    this.updateMetrics(data)
+    this.saveData(data)
+    return true
+  }
+
   // Ajouter une activité
   addActivity(activity: Omit<Activity, "id">): Activity {
     const data = this.loadData()
@@ -183,6 +195,13 @@ export class DataManager {
     data.actionItems[index] = { ...data.actionItems[index], ...updates }
     this.saveData(data)
     return data.actionItems[index]
+  }
+
+  // Mettre à jour manuellement les métriques
+  updateMetricsManually(metrics: BusinessMetrics): void {
+    const data = this.loadData()
+    data.metrics = metrics
+    this.saveData(data)
   }
 
   // Mettre à jour les métriques en fonction des deals
