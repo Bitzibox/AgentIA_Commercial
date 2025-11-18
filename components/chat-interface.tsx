@@ -660,6 +660,11 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
       setMessages((prev) => [...prev, assistantMessage])
       setStreamingMessage("") // Nettoyer le streaming
+
+      // Lire la réponse vocalement si le mode vocal est actif
+      if (voiceSettings.autoSpeak && voiceSettings.mode !== 'disabled' && finalResponse) {
+        await speak(finalResponse)
+      }
     } catch (error: any) {
       console.error("Chat error:", error)
       const errorMessage: Message = {
