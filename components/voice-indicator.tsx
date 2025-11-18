@@ -16,6 +16,14 @@ export function VoiceIndicator({ state, interimTranscript, wakeWord = "Hey Agent
   }
 
   const stateConfig = {
+    idle: {
+      icon: <MicOff className="h-5 w-5" />,
+      text: 'Mode vocal désactivé',
+      bgColor: 'bg-gray-100 dark:bg-gray-950',
+      borderColor: 'border-gray-300 dark:border-gray-700',
+      textColor: 'text-gray-800 dark:text-gray-200',
+      dotColor: 'bg-gray-500',
+    },
     'listening-wake-word': {
       icon: <Mic className="h-5 w-5 animate-pulse" />,
       text: `En veille - Dites "${wakeWord}"`,
@@ -42,7 +50,7 @@ export function VoiceIndicator({ state, interimTranscript, wakeWord = "Hey Agent
     },
   }
 
-  const config = stateConfig[state] || stateConfig.idle
+  const config = stateConfig[state]
 
   return (
     <div

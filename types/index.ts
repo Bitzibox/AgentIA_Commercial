@@ -29,6 +29,12 @@ export interface Deal {
   lastActivity: Date
   nextStep?: string
   tags?: string[]
+  // Properties for voice features (aliases)
+  client?: string // alias for company
+  amount?: number // alias for value
+  status?: string // alias for stage
+  description?: string
+  expectedCloseDate?: string
 }
 
 export interface Lead {
@@ -66,6 +72,9 @@ export interface ActionItem {
     id: string
     name: string
   }
+  // Properties for voice features
+  type?: "call" | "email" | "meeting" | "task"
+  status?: "todo" | "done" | "cancelled"
 }
 
 export interface BusinessContext {

@@ -18,7 +18,7 @@ export class EntityExtractor {
       probability: entities.probability || 50,
       expectedCloseDate: entities.expectedCloseDate || defaultCloseDate.toISOString().split('T')[0],
       description: entities.description || '',
-    }
+    } as any
   }
 
   /**
@@ -61,8 +61,9 @@ export class EntityExtractor {
       type: entities.type || 'call',
       priority: entities.priority || 'medium',
       status: 'todo',
-      dueDate: entities.dueDate || defaultDate.toISOString().split('T')[0],
-    }
+      dueDate: entities.dueDate ? new Date(entities.dueDate) : defaultDate,
+      completed: false,
+    } as any
   }
 
   /**
@@ -73,9 +74,9 @@ export class EntityExtractor {
       ...deal,
       ...modifications,
       // S'assurer que les types sont corrects
-      amount: modifications.amount !== undefined ? modifications.amount : deal.amount,
+      amount: modifications.amount !== undefined ? modifications.amount : (deal as any).amount,
       probability: modifications.probability !== undefined ? modifications.probability : deal.probability,
-    }
+    } as any
   }
 
   /**
@@ -106,12 +107,13 @@ export class EntityExtractor {
    */
   static validateDeal(deal: Partial<Deal>): { isValid: boolean; errors: string[] } {
     const errors: string[] = []
+    const typedDeal = deal as any
 
-    if (!deal.client || deal.client.trim() === '' || deal.client === 'Client inconnu') {
+    if (!typedDeal.client || typedDeal.client.trim() === '' || typedDeal.client === 'Client inconnu') {
       errors.push('Le nom du client est requis')
     }
 
-    if (!deal.amount || deal.amount <= 0) {
+    if (!typedDeal.amount || typedDeal.amount <= 0) {
       errors.push('Le montant doit être supérieur à 0')
     }
 
@@ -130,12 +132,13 @@ export class EntityExtractor {
    */
   static validateAction(action: Partial<ActionItem>): { isValid: boolean; errors: string[] } {
     const errors: string[] = []
+    const typedAction = action as any
 
     if (!action.title || action.title.trim() === '') {
       errors.push('Le titre est requis')
     }
 
-    if (!action.type) {
+    if (!typedAction.type) {
       errors.push('Le type est requis')
     }
 
@@ -153,13 +156,14 @@ export class EntityExtractor {
    * Générer un message de confirmation pour un deal
    */
   static generateDealConfirmation(deal: Partial<Deal>): string {
-    let message = `Opportunité ${deal.client}`
+    const typedDeal = deal as any
+    let message = `Opportunité ${typedDeal.client}`
 
-    if (deal.amount) {
-      message += ` pour ${this.formatCurrency(deal.amount)}`
+    if (typedDeal.amount) {
+      message += ` pour ${this.formatCurrency(typedDeal.amount)}`
     }
 
-    if (deal.status) {
+    if (typedDeal.status) {
       const statusLabels: Record<string, string> = {
         prospect: 'statut prospect',
         proposal: 'proposition envoyée',
@@ -167,7 +171,7 @@ export class EntityExtractor {
         won: 'gagnée',
         lost: 'perdue',
       }
-      message += `, ${statusLabels[deal.status] || deal.status}`
+      message += `, ${statusLabels[typedDeal.status] || typedDeal.status}`
     }
 
     if (deal.probability) {
@@ -184,7 +188,7 @@ export class EntityExtractor {
     let message = action.title || 'Nouvelle action'
 
     if (action.dueDate) {
-      const date = new Date(action.dueDate)
+      const date = action.dueDate instanceof Date ? action.dueDate : new Date(action.dueDate)
       const today = new Date()
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
@@ -194,7 +198,7 @@ export class EntityExtractor {
       } else if (date.toDateString() === tomorrow.toDateString()) {
         message += ' demain'
       } else {
-        message += ` le ${this.formatDate(action.dueDate)}`
+        message += ` le ${this.formatDate(date.toISOString().split('T')[0])}`
       }
     }
 
