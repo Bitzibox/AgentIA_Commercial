@@ -31,7 +31,7 @@ export function VoiceSettingsPanel({ settings, onChange }: VoiceSettingsPanelPro
           <Label className="text-base font-semibold">Mode Vocal</Label>
           <RadioGroup
             value={settings.mode}
-            onValueChange={(value) => onChange({ ...settings, mode: value as any })}
+            onValueChange={(value: string) => onChange({ ...settings, mode: value as any })}
           >
             <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
               <RadioGroupItem value="disabled" id="disabled" className="mt-1" />
@@ -108,7 +108,7 @@ export function VoiceSettingsPanel({ settings, onChange }: VoiceSettingsPanelPro
             </div>
             <Switch
               checked={settings.conversationalMode}
-              onCheckedChange={(checked) => onChange({ ...settings, conversationalMode: checked })}
+              onCheckedChange={(checked: boolean) => onChange({ ...settings, conversationalMode: checked })}
             />
           </div>
 
@@ -125,7 +125,7 @@ export function VoiceSettingsPanel({ settings, onChange }: VoiceSettingsPanelPro
             </div>
             <Switch
               checked={settings.autoSpeak}
-              onCheckedChange={(checked) => onChange({ ...settings, autoSpeak: checked })}
+              onCheckedChange={(checked: boolean) => onChange({ ...settings, autoSpeak: checked })}
             />
           </div>
 
@@ -137,7 +137,7 @@ export function VoiceSettingsPanel({ settings, onChange }: VoiceSettingsPanelPro
               </Label>
               <Slider
                 value={[settings.voiceSpeed]}
-                onValueChange={([value]) => onChange({ ...settings, voiceSpeed: value })}
+                onValueChange={([value]: number[]) => onChange({ ...settings, voiceSpeed: value })}
                 min={0.5}
                 max={2}
                 step={0.1}

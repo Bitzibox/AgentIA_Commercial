@@ -15,9 +15,9 @@ interface QuickAccessCardsProps {
 }
 
 export function QuickAccessCards({ deals, actions, onNavigateToDeals, onNavigateToActions }: QuickAccessCardsProps) {
-  const urgentActions = actions.filter(a => a.priority === "high" && a.status === "todo")
-  const totalDealsValue = deals.reduce((sum, deal) => sum + deal.amount, 0)
-  const activeDeals = deals.filter(d => d.status !== "lost" && d.status !== "won")
+  const urgentActions = actions.filter(a => a.priority === "high" && (a as any).status === "todo")
+  const totalDealsValue = deals.reduce((sum, deal) => sum + ((deal as any).amount || 0), 0)
+  const activeDeals = deals.filter(d => (d as any).status !== "lost" && (d as any).status !== "won")
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -52,8 +52,8 @@ export function QuickAccessCards({ deals, actions, onNavigateToDeals, onNavigate
               {deals.slice(0, 3).map((deal) => (
                 <div key={deal.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{deal.client}</p>
-                    <p className="text-sm text-muted-foreground">{formatCurrency(deal.amount)}</p>
+                    <p className="font-medium truncate">{(deal as any).client || deal.company}</p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency((deal as any).amount || deal.value || 0)}</p>
                   </div>
                   <Badge variant="outline" className="ml-2">
                     {deal.probability}%
@@ -90,7 +90,7 @@ export function QuickAccessCards({ deals, actions, onNavigateToDeals, onNavigate
                 </Badge>
               )}
               <Badge variant="secondary" className="text-lg font-bold">
-                {actions.filter(a => a.status === "todo").length}
+                {actions.filter(a => !a.completed).length}
               </Badge>
             </div>
           </div>
@@ -114,7 +114,7 @@ export function QuickAccessCards({ deals, actions, onNavigateToDeals, onNavigate
             {/* Top 3 actions */}
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Prochaines actions</p>
-              {actions.filter(a => a.status === "todo").slice(0, 3).map((action) => (
+              {actions.filter(a => !a.completed).slice(0, 3).map((action) => (
                 <div key={action.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{action.title}</p>
@@ -127,7 +127,7 @@ export function QuickAccessCards({ deals, actions, onNavigateToDeals, onNavigate
                   )}
                 </div>
               ))}
-              {actions.filter(a => a.status === "todo").length === 0 && (
+              {actions.filter(a => !a.completed).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Aucune action en attente 👍
                 </p>
