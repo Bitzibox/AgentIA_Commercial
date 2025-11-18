@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { ConversationsSidebar } from "@/components/conversations-sidebar"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
@@ -34,7 +34,7 @@ export default function Home() {
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
   const [isLoadingInsights, setIsLoadingInsights] = useState(false)
-  const [insightsLoaded, setInsightsLoaded] = useState(false)
+  const insightsGeneratedRef = useRef(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -42,9 +42,20 @@ export default function Home() {
     initializeConversation()
   }, [])
 
-  // Générer les insights IA uniquement au premier chargement
+  // Générer les insights IA UNIQUEMENT la première fois que businessData est disponible
   useEffect(() => {
-    if (!businessData || insightsLoaded) return
+    // Protection absolue : si déjà généré une fois, ne JAMAIS régénérer
+    if (insightsGeneratedRef.current) {
+      return
+    }
+
+    // Attendre que les données soient chargées
+    if (!businessData) {
+      return
+    }
+
+    // Marquer immédiatement comme généré pour éviter les doubles appels
+    insightsGeneratedRef.current = true
 
     const generateInitialInsights = async () => {
       setIsLoadingInsights(true)
@@ -60,7 +71,6 @@ export default function Home() {
           setAiInsights(insights)
           setSuggestedActions(actions)
         }
-        setInsightsLoaded(true)
       } catch (error) {
         console.error("Erreur génération insights:", error)
         // Fallback sur règles
@@ -68,7 +78,6 @@ export default function Home() {
         const actions = AIInsightsEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
-        setInsightsLoaded(true)
       } finally {
         setIsLoadingInsights(false)
       }
@@ -76,7 +85,7 @@ export default function Home() {
 
     generateInitialInsights()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessData])
+  }, [businessData]) // Surveille businessData, mais useRef empêche la régénération
 
   const initializeConversation = () => {
     const conversation = conversationManager.getOrCreateActiveConversation()
@@ -163,7 +172,7 @@ export default function Home() {
     if (confirm("Êtes-vous sûr de vouloir réinitialiser toutes les données ?")) {
       dataManager.resetToDemo()
       loadData()
-      setInsightsLoaded(false) // Permettre une nouvelle génération
+      insightsGeneratedRef.current = false // Permettre une nouvelle génération
     }
   }
 
