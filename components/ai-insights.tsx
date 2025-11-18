@@ -136,14 +136,42 @@ export function AIInsights({ businessContext, onAddAction }: AIInsightsProps) {
   const visibleInsights = insights.filter(i => !dismissedInsights.has(i.id))
   const visibleActions = suggestedActions.filter(a => !dismissedActions.has(a.id))
 
-  if (visibleInsights.length === 0 && visibleActions.length === 0) {
-    return null
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Insights IA */}
-      {visibleInsights.length > 0 && (
+    <>
+      {/* Colonne 1 : Insights IA */}
+      <div>
+        {isLoading ? (
+          <Card className="shadow-xl border-2 border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-950/50 dark:to-pink-950/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg">
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Génération insights...</CardTitle>
+                    <CardDescription>Analyse en cours</CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-4 rounded-xl border-2 bg-white/50 dark:bg-slate-900/50 animate-pulse">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-purple-200 dark:bg-purple-800 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-purple-200 dark:bg-purple-800 rounded w-3/4" />
+                        <div className="h-3 bg-purple-100 dark:bg-purple-900 rounded w-full" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : visibleInsights.length > 0 ? (
         <Card className="shadow-xl border-2 border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-950/50 dark:to-pink-950/50 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -217,10 +245,48 @@ export function AIInsights({ businessContext, onAddAction }: AIInsightsProps) {
             ))}
           </CardContent>
         </Card>
-      )}
+        ) : (
+          <Card className="shadow-xl border-2 border-purple-200/50 dark:border-purple-800/50">
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>Aucun insight disponible pour le moment</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
-      {/* Actions suggérées */}
-      {visibleActions.length > 0 && (
+      {/* Colonne 2 : Actions suggérées */}
+      <div>
+        {isLoading ? (
+          <Card className="shadow-xl border-2 border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-950/50 dark:to-cyan-950/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 shadow-lg">
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Génération actions...</CardTitle>
+                  <CardDescription>Recommandations en cours</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="p-4 rounded-xl border-2 bg-white/50 dark:bg-slate-900/50 animate-pulse">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded w-2/3" />
+                        <div className="h-3 bg-blue-100 dark:bg-blue-900 rounded w-full" />
+                        <div className="h-8 bg-blue-100 dark:bg-blue-900 rounded w-1/3" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : visibleActions.length > 0 ? (
         <Card className="shadow-xl border-2 border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-950/50 dark:to-cyan-950/50 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
@@ -282,7 +348,15 @@ export function AIInsights({ businessContext, onAddAction }: AIInsightsProps) {
             ))}
           </CardContent>
         </Card>
-      )}
-    </div>
+        ) : (
+          <Card className="shadow-xl border-2 border-blue-200/50 dark:border-blue-800/50">
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>Aucune action suggérée pour le moment</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </>
   )
 }
