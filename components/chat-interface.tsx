@@ -191,8 +191,9 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
       if (voiceSettings.autoSpeak && voiceSettings.mode === 'automatic') {
         await speak(result.pendingAction.confirmationMessage + ". Confirmez-vous ?")
       }
-    } else if (result.response) {
-      // Réponse de l'IA
+    } else {
+      // Pas d'action en attente : envoyer la question à Gemini
+      // (que result.response soit null ou non)
       const userMsg: Message = {
         id: Date.now().toString(),
         role: "user",
