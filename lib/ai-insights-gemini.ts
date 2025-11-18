@@ -86,8 +86,21 @@ IMPORTANT:
 
       const response = await geminiClientService.generateContent(prompt)
 
-      // Parser la réponse JSON
-      const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      // Parser la réponse JSON avec nettoyage amélioré
+      let cleanedResponse = response.trim()
+
+      // Retirer les marqueurs de code markdown
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '')
+
+      // Extraire le JSON entre crochets si présent
+      const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0]
+      }
+
+      // Nettoyer les caractères de contrôle et espaces
+      cleanedResponse = cleanedResponse.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+
       const parsedInsights = JSON.parse(cleanedResponse)
 
       // Ajouter des IDs
@@ -137,7 +150,19 @@ Maximum 5 actions, priorisées par impact business.
 Retourne UNIQUEMENT le JSON valide.`
 
       const response = await geminiClientService.generateContent(prompt)
-      const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+      // Parser la réponse JSON avec nettoyage amélioré
+      let cleanedResponse = response.trim()
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '')
+
+      // Extraire le JSON entre crochets
+      const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0]
+      }
+
+      cleanedResponse = cleanedResponse.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+
       const parsedActions = JSON.parse(cleanedResponse)
 
       // Convertir en SuggestedAction format
@@ -205,7 +230,19 @@ IMPORTANT:
 - Retourne UNIQUEMENT le JSON valide`
 
       const response = await geminiClientService.generateContent(prompt)
-      const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+      // Parser la réponse JSON avec nettoyage amélioré
+      let cleanedResponse = response.trim()
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '')
+
+      // Extraire le JSON entre accolades
+      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0]
+      }
+
+      cleanedResponse = cleanedResponse.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+
       return JSON.parse(cleanedResponse)
     } catch (error) {
       console.error("Erreur analyse deal Gemini:", error)
