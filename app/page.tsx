@@ -19,12 +19,14 @@ import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
 import { AIInsights } from "@/components/ai-insights"
 import { NotificationsPanel } from "@/components/notifications-panel"
+import { QuickAccessCards } from "@/components/quick-access-cards"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
   const [isClient, setIsClient] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [conversationKey, setConversationKey] = useState(0)
+  const [activeTab, setActiveTab] = useState("dashboard")
 
   useEffect(() => {
     setIsClient(true)
@@ -223,7 +225,7 @@ export default function Home() {
         </header>
 
         {/* Main Content avec tabs améliorés */}
-        <Tabs defaultValue="dashboard" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5 lg:w-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-1.5 rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/50">
             <TabsTrigger
               value="dashboard"
@@ -269,21 +271,13 @@ export default function Home() {
 
             <MetricsDashboard metrics={businessData.metrics} />
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <DealsList
-                deals={businessData.topDeals}
-                businessContext={businessData}
-                onAdd={handleAddDeal}
-                onUpdate={handleUpdateDeal}
-                onDelete={handleDeleteDeal}
-              />
-              <ActionItems
-                items={businessData.actionItems}
-                onAdd={handleAddAction}
-                onUpdate={handleUpdateAction}
-                onDelete={handleDeleteAction}
-              />
-            </div>
+            {/* Cartes d'accès rapide aux opportunités et actions */}
+            <QuickAccessCards
+              deals={businessData.topDeals}
+              actions={businessData.actionItems}
+              onNavigateToDeals={() => setActiveTab("deals")}
+              onNavigateToActions={() => setActiveTab("actions")}
+            />
           </TabsContent>
 
           {/* Chat Tab avec Sidebar */}
