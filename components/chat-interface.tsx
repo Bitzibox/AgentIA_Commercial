@@ -4,14 +4,20 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff, Volume2, VolumeX } from "lucide-react"
+import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff, Volume2, VolumeX, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Message } from "@/types"
+import { Message, Deal, ActionItem } from "@/types"
+import { VoiceSettings, VoiceMode, PendingAction } from "@/types/voice"
 import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
 import { AIContentGenerator } from "@/lib/ai-content-generator"
 import { voiceRecognitionService } from "@/lib/voice-recognition"
 import { voiceConversationOrchestrator, ConversationState } from "@/lib/voice-conversation-orchestrator"
+import { useVoice } from "@/hooks/use-voice"
+import { useConversational } from "@/hooks/use-conversational"
+import { IntentDetector } from "@/lib/intent-detector"
+import { VoiceIndicator } from "@/components/voice-indicator"
+import { DealProposalCard, ActionProposalCard } from "@/components/action-proposal-card"
 import { TemplatesModal } from "@/components/templates-modal"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -57,12 +63,173 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState("")
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [isListening, setIsListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [interimTranscript, setInterimTranscript] = useState("")
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
+
+  // États pour les anciens modes (rétrocompatibilité)
+  const [isListening, setIsListening] = useState(false)
   const [conversationMode, setConversationMode] = useState(false)
   const [conversationState, setConversationState] = useState<ConversationState>("idle")
+
+  // Nouveaux états pour le système vocal
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
+    mode: 'disabled',
+    wakeWord: 'Hey Agent',
+    conversationalMode: true,
+    autoSpeak: true,
+    language: 'fr-FR',
+    voiceSpeed: 1.0,
+  })
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  // Hooks pour le nouveau système vocal
+  const {
+    voiceState,
+    isListening: isVoiceListening,
+    error: voiceHookError,
+    startManualListening,
+    stopListening,
+    speak,
+    startConversationListening,
+    returnToWakeWordMode,
+  } = useVoice(
+    (transcript, isFinal) => {
+      if (isFinal) {
+        handleVoiceInput(transcript)
+        setInterimTranscript("")
+      } else {
+        setInterimTranscript(transcript)
+      }
+    },
+    voiceSettings
+  )
+
+  const {
+    state: conversationalState,
+    pendingAction,
+    processMessage,
+    createPendingItem,
+    startConversation,
+    endConversation,
+    reset: resetConversation,
+  } = useConversational(
+    (deal) => {
+      // Callback quand un deal est créé
+      console.log('[Conversational] Deal créé:', deal)
+      // TODO: Ajouter le deal à la base de données ou au contexte
+    },
+    (action) => {
+      // Callback quand une action est créée
+      console.log('[Conversational] Action créée:', action)
+      // TODO: Ajouter l'action à la base de données ou au contexte
+    }
+  )
+
+  // Fonction helper pour vérifier le support vocal
+  const isVoiceSupported = () => {
+    if (typeof window === 'undefined') return false
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    return !!SpeechRecognition
+  }
+
+  // Fonctions helper pour manipuler pendingAction
+  const confirmPendingAction = async () => {
+    return createPendingItem()
+  }
+
+  const cancelPendingAction = () => {
+    resetConversation()
+  }
+
+  // Gérer l'entrée vocale
+  const handleVoiceInput = async (transcript: string) => {
+    if (!transcript.trim()) return
+
+    // Détecter l'intention du message
+    const intent = IntentDetector.detectIntent(transcript, !!pendingAction)
+
+    if (intent.intent === 'confirm' && pendingAction) {
+      // Confirmer l'action en attente
+      await handleConfirmPendingAction()
+      return
+    }
+
+    if (intent.intent === 'cancel' && pendingAction) {
+      // Annuler l'action en attente
+      cancelPendingAction()
+      if (voiceSettings.autoSpeak) {
+        await speak("D'accord, j'annule.")
+      }
+      return
+    }
+
+    if (intent.intent === 'modify' && pendingAction) {
+      // Modifier le deal/action en attente (à implémenter)
+      if (voiceSettings.autoSpeak) {
+        await speak("Modification enregistrée. Confirmez-vous ?")
+      }
+      return
+    }
+
+    // Traiter le message normalement
+    const result = await processMessage(transcript)
+
+    if (result.pendingAction) {
+      // Une action est en attente de confirmation
+      if (voiceSettings.autoSpeak && voiceSettings.mode === 'automatic') {
+        await speak(result.pendingAction.confirmationMessage + ". Confirmez-vous ?")
+      }
+    } else if (result.response) {
+      // Réponse de l'IA
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: transcript,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, userMsg])
+
+      // Envoyer à Gemini
+      await handleSendMessage(transcript)
+    }
+  }
+
+  // Confirmer une action en attente (deal ou action)
+  const handleConfirmPendingAction = async () => {
+    if (!pendingAction) return
+
+    try {
+      const createdItem = await confirmPendingAction()
+
+      if (voiceSettings.autoSpeak) {
+        if (pendingAction.type === 'create_deal') {
+          await speak("Parfait ! L'opportunité a été créée avec succès.")
+        } else {
+          await speak("L'action a été créée avec succès.")
+        }
+      }
+
+      // Ajouter un message de confirmation dans le chat
+      const confirmMsg: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: pendingAction.type === 'create_deal'
+          ? `✅ Opportunité créée avec succès !`
+          : `✅ Action créée avec succès !`,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, confirmMsg])
+
+    } catch (error) {
+      console.error("Erreur création:", error)
+      if (voiceSettings.autoSpeak) {
+        await speak("Désolé, une erreur s'est produite lors de la création.")
+      }
+    }
+  }
 
   // Charger les messages de la conversation active
   useEffect(() => {
@@ -378,19 +545,23 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
   }
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+  // Fonction principale pour envoyer un message
+  const handleSendMessage = async (textOverride?: string) => {
+    const messageText = textOverride || input
+    if (!messageText.trim() || isLoading) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: messageText,
       timestamp: new Date(),
     }
 
     setMessages((prev) => [...prev, userMessage])
-    const currentInput = input
-    setInput("")
+    const currentInput = messageText
+    if (!textOverride) {
+      setInput("")
+    }
 
     // Vérifier si c'est une commande slash
     if (currentInput.startsWith("/")) {
@@ -495,6 +666,11 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
   }
 
+  // Wrapper pour le bouton d'envoi
+  const handleSend = () => {
+    handleSendMessage()
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -573,6 +749,24 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     "Prépare-moi pour mon RDV avec TechCorp",
   ]
 
+  // Gérer le changement de mode vocal
+  const handleVoiceModeChange = (mode: VoiceMode) => {
+    setVoiceSettings((prev) => ({ ...prev, mode }))
+
+    if (mode === 'automatic') {
+      startConversation()
+      startConversationListening()
+    } else if (mode === 'manual') {
+      // Manuel : pas de wake word, on attend que l'utilisateur clique
+      stopListening()
+      endConversation()
+    } else {
+      // Disabled
+      stopListening()
+      endConversation()
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header fixe en haut */}
@@ -583,33 +777,67 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             <h2 className="text-lg font-semibold">Copilote Commercial IA</h2>
           </div>
           <div className="flex items-center gap-2">
-            {/* Bouton mode conversationnel */}
-            {voiceConversationOrchestrator.isSupported() && (
-              <Button
-                onClick={handleConversationModeToggle}
-                size="sm"
-                variant={conversationMode ? "default" : "outline"}
-                className={cn(
-                  "gap-2",
-                  conversationMode && "bg-gradient-to-r from-purple-600 to-blue-600 animate-pulse"
-                )}
-              >
-                {conversationMode ? (
-                  <>
-                    <VolumeX className="h-4 w-4" />
-                    Arrêter
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="h-4 w-4" />
-                    Mode Vocal
-                  </>
-                )}
-              </Button>
+            {/* Boutons de contrôle vocal */}
+            {isVoiceSupported() && (
+              <>
+                {/* Mode automatique (wake word) */}
+                <Button
+                  onClick={() => handleVoiceModeChange(voiceSettings.mode === 'automatic' ? 'disabled' : 'automatic')}
+                  size="sm"
+                  variant={voiceSettings.mode === 'automatic' ? "default" : "outline"}
+                  className={cn(
+                    "gap-2",
+                    voiceSettings.mode === 'automatic' && "bg-gradient-to-r from-purple-600 to-blue-600"
+                  )}
+                >
+                  {voiceSettings.mode === 'automatic' ? (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Wake Word ON
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Hey Agent
+                    </>
+                  )}
+                </Button>
+
+                {/* Mode manuel */}
+                <Button
+                  onClick={() => handleVoiceModeChange(voiceSettings.mode === 'manual' ? 'disabled' : 'manual')}
+                  size="sm"
+                  variant={voiceSettings.mode === 'manual' ? "default" : "outline"}
+                  className="gap-2"
+                >
+                  <Mic className="h-4 w-4" />
+                  Manuel
+                </Button>
+
+                {/* Paramètres vocaux */}
+                <Button
+                  onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </>
             )}
             <TemplatesModal onTemplateApply={handleTemplateApply} />
           </div>
         </div>
+
+        {/* Indicateur vocal */}
+        {voiceSettings.mode !== 'disabled' && (
+          <div className="mt-3 pt-3 border-t">
+            <VoiceIndicator
+              state={voiceState}
+              interimTranscript={interimTranscript}
+              wakeWord={voiceSettings.wakeWord}
+            />
+          </div>
+        )}
 
         {/* Indicateur d'état conversationnel */}
         {conversationMode && (
@@ -753,8 +981,37 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             </div>
           )}
 
+          {/* Cartes de proposition (deals/actions) */}
+          {pendingAction && (
+            <div className="mb-6">
+              {pendingAction.type === 'create_deal' ? (
+                <DealProposalCard
+                  deal={pendingAction.data}
+                  onConfirm={handleConfirmPendingAction}
+                  onCancel={() => {
+                    cancelPendingAction()
+                    if (voiceSettings.autoSpeak) {
+                      speak("D'accord, annulé.")
+                    }
+                  }}
+                />
+              ) : (
+                <ActionProposalCard
+                  action={pendingAction.data}
+                  onConfirm={handleConfirmPendingAction}
+                  onCancel={() => {
+                    cancelPendingAction()
+                    if (voiceSettings.autoSpeak) {
+                      speak("D'accord, annulé.")
+                    }
+                  }}
+                />
+              )}
+            </div>
+          )}
+
           {/* Questions suggérées - Auto-envoi au clic */}
-          {messages.length === 1 && !isLoading && (
+          {messages.length === 1 && !isLoading && !pendingAction && (
             <div className="space-y-2 mt-4">
               <p className="text-sm text-muted-foreground font-medium px-1">
                 Questions suggérées :
