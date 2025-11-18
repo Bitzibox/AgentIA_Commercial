@@ -4,13 +4,14 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff } from "lucide-react"
+import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff, Volume2, VolumeX } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/types"
 import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
 import { AIContentGenerator } from "@/lib/ai-content-generator"
 import { voiceRecognitionService } from "@/lib/voice-recognition"
+import { voiceConversationOrchestrator, ConversationState } from "@/lib/voice-conversation-orchestrator"
 import { TemplatesModal } from "@/components/templates-modal"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -58,6 +59,8 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [conversationMode, setConversationMode] = useState(false)
+  const [conversationState, setConversationState] = useState<ConversationState>("idle")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -86,32 +89,162 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     }
   }, [messages, streamingMessage, disableAutoScroll])
 
-  // Configuration de la reconnaissance vocale
+  // Configuration de la reconnaissance vocale simple
   useEffect(() => {
     // Callback pour les résultats de la reconnaissance
     voiceRecognitionService.onResult((transcript) => {
-      setInput(transcript)
-      setVoiceError(null)
+      // En mode simple (pas conversationnel)
+      if (!conversationMode) {
+        setInput(transcript)
+        setVoiceError(null)
+      }
     })
 
     // Callback pour les erreurs
     voiceRecognitionService.onError((error) => {
-      setVoiceError(error)
-      setTimeout(() => setVoiceError(null), 5000) // Effacer l'erreur après 5s
+      if (!conversationMode) {
+        setVoiceError(error)
+        setTimeout(() => setVoiceError(null), 5000) // Effacer l'erreur après 5s
+      }
     })
 
     // Callback pour les changements d'état
     voiceRecognitionService.onStateChange((listening) => {
-      setIsListening(listening)
+      if (!conversationMode) {
+        setIsListening(listening)
+      }
     })
-  }, [])
+  }, [conversationMode])
 
-  // Gérer le bouton microphone
+  // Configuration du mode conversationnel vocal
+  useEffect(() => {
+    voiceConversationOrchestrator.setCallbacks({
+      // Changement d'état de la conversation
+      onStateChange: (state) => {
+        setConversationState(state)
+      },
+
+      // Message utilisateur détecté
+      onUserMessage: (message) => {
+        const userMsg: Message = {
+          id: Date.now().toString(),
+          role: "user",
+          content: message,
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, userMsg])
+      },
+
+      // Obtenir la réponse de l'assistant
+      onAssistantResponse: async (userMessage) => {
+        setIsLoading(true)
+        setStreamingMessage("")
+
+        try {
+          // Obtenir la réponse de Gemini avec streaming
+          const response = await geminiClientService.chatStream(
+            [
+              ...messages.map((msg) => ({
+                role: msg.role === "assistant" ? "model" as const : "user" as const,
+                parts: msg.content,
+              })),
+              {
+                role: "user" as const,
+                parts: userMessage,
+              },
+            ],
+            businessContext,
+            (text) => {
+              setStreamingMessage(text)
+            }
+          )
+
+          const assistantMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: response || "Désolé, je n'ai pas pu générer de réponse.",
+            timestamp: new Date(),
+          }
+
+          setMessages((prev) => [...prev, assistantMsg])
+          setStreamingMessage("")
+          setIsLoading(false)
+
+          // Faire parler l'assistant
+          await voiceConversationOrchestrator.speak(response)
+        } catch (error: any) {
+          console.error("Erreur conversation vocale:", error)
+          setIsLoading(false)
+          setStreamingMessage("")
+
+          const errorMsg = "Désolé, une erreur s'est produite."
+          const assistantMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: errorMsg,
+            timestamp: new Date(),
+          }
+
+          setMessages((prev) => [...prev, assistantMsg])
+          await voiceConversationOrchestrator.speak(errorMsg)
+        }
+      },
+
+      // Erreur
+      onError: (error) => {
+        setVoiceError(error)
+        setTimeout(() => setVoiceError(null), 5000)
+      },
+
+      // Commande vocale reçue
+      onCommand: (command) => {
+        if (command.type === "exit") {
+          setConversationMode(false)
+        }
+      },
+    })
+  }, [messages, businessContext])
+
+  // Gérer le bouton microphone simple
   const handleVoiceToggle = () => {
     if (isListening) {
       voiceRecognitionService.stop()
     } else {
       voiceRecognitionService.start()
+    }
+  }
+
+  // Gérer le mode conversationnel
+  const handleConversationModeToggle = () => {
+    if (conversationMode) {
+      // Arrêter le mode conversationnel
+      voiceConversationOrchestrator.stop()
+      setConversationMode(false)
+      setConversationState("idle")
+    } else {
+      // Démarrer le mode conversationnel
+      if (!voiceConversationOrchestrator.isSupported()) {
+        setVoiceError("Votre navigateur ne supporte pas le mode conversationnel complet")
+        return
+      }
+      setConversationMode(true)
+      voiceConversationOrchestrator.start()
+    }
+  }
+
+  // Obtenir le libellé de l'état conversationnel
+  const getConversationStateLabel = (state: ConversationState): string => {
+    switch (state) {
+      case "idle":
+        return "En attente"
+      case "listening":
+        return "🎤 Je vous écoute..."
+      case "processing":
+        return "🤔 Je réfléchis..."
+      case "speaking":
+        return "🔊 Je vous réponds..."
+      default:
+        return ""
     }
   }
 
@@ -449,8 +582,59 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             <Sparkles className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Copilote Commercial IA</h2>
           </div>
-          <TemplatesModal onTemplateApply={handleTemplateApply} />
+          <div className="flex items-center gap-2">
+            {/* Bouton mode conversationnel */}
+            {voiceConversationOrchestrator.isSupported() && (
+              <Button
+                onClick={handleConversationModeToggle}
+                size="sm"
+                variant={conversationMode ? "default" : "outline"}
+                className={cn(
+                  "gap-2",
+                  conversationMode && "bg-gradient-to-r from-purple-600 to-blue-600 animate-pulse"
+                )}
+              >
+                {conversationMode ? (
+                  <>
+                    <VolumeX className="h-4 w-4" />
+                    Arrêter
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-4 w-4" />
+                    Mode Vocal
+                  </>
+                )}
+              </Button>
+            )}
+            <TemplatesModal onTemplateApply={handleTemplateApply} />
+          </div>
         </div>
+
+        {/* Indicateur d'état conversationnel */}
+        {conversationMode && (
+          <div className="mt-3 pt-3 border-t">
+            <div className={cn(
+              "flex items-center gap-2 text-sm px-3 py-2 rounded-lg",
+              conversationState === "listening" && "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400",
+              conversationState === "processing" && "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400",
+              conversationState === "speaking" && "bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400",
+              conversationState === "idle" && "bg-muted text-muted-foreground"
+            )}>
+              {conversationState === "listening" && <Mic className="h-4 w-4 animate-pulse" />}
+              {conversationState === "processing" && <Loader2 className="h-4 w-4 animate-spin" />}
+              {conversationState === "speaking" && <Volume2 className="h-4 w-4 animate-pulse" />}
+              <span className="font-medium">{getConversationStateLabel(conversationState)}</span>
+              {conversationState !== "idle" && (
+                <div className="ml-auto flex gap-1">
+                  <div className="w-1 h-4 bg-current rounded animate-pulse" style={{ animationDelay: "0ms" }} />
+                  <div className="w-1 h-4 bg-current rounded animate-pulse" style={{ animationDelay: "150ms" }} />
+                  <div className="w-1 h-4 bg-current rounded animate-pulse" style={{ animationDelay: "300ms" }} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Zone de messages scrollable - Style ChatGPT */}
@@ -605,12 +789,22 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             </div>
           )}
 
-          {/* Indicateur d'écoute */}
-          {isListening && (
+          {/* Indicateur d'écoute (mode simple uniquement) */}
+          {isListening && !conversationMode && (
             <div className="mb-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 animate-pulse">
               <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
                 <Mic className="h-3 w-3" />
                 Écoute en cours... Parlez maintenant
+              </p>
+            </div>
+          )}
+
+          {/* Message en mode conversationnel */}
+          {conversationMode && (
+            <div className="mb-2 p-2 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border border-purple-200 dark:border-purple-900">
+              <p className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                <Volume2 className="h-3 w-3 animate-pulse" />
+                Mode vocal actif - Utilisez votre voix pour interagir. Dites "aide" pour les commandes disponibles.
               </p>
             </div>
           )}
@@ -620,12 +814,12 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Posez votre question ou tapez / pour les commandes..."
-              disabled={isLoading}
+              placeholder={conversationMode ? "Mode vocal actif - Parlez directement..." : "Posez votre question ou tapez / pour les commandes..."}
+              disabled={isLoading || conversationMode}
               className="flex-1"
             />
-            {/* Bouton microphone */}
-            {voiceRecognitionService.isSupported() && (
+            {/* Bouton microphone simple (désactivé en mode conversationnel) */}
+            {voiceRecognitionService.isSupported() && !conversationMode && (
               <Button
                 onClick={handleVoiceToggle}
                 disabled={isLoading}
@@ -644,7 +838,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
             )}
             <Button
               onClick={handleSend}
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || conversationMode}
               size="icon"
             >
               <Send className="size-4" />
