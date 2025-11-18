@@ -85,9 +85,9 @@ export function NotificationsPanel({ businessContext, onNavigate }: Notification
 
       {/* Notifications Panel */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-end p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-in slide-in-from-right duration-300">
-            <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 sticky top-0 z-10">
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-end p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-in slide-in-from-right duration-300 relative z-[10000]">
+            <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 sticky top-0 z-[10001]">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
