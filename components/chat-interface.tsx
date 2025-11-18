@@ -103,6 +103,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     speak,
     startConversationListening,
     returnToWakeWordMode,
+    startWakeWordListening, // Ajouter startWakeWordListening
   } = useVoice(
     (transcript, isFinal) => {
       if (isFinal) {
@@ -763,7 +764,7 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
     if (mode === 'automatic') {
       startConversation()
-      startConversationListening()
+      startWakeWordListening() // Démarrer l'écoute du wake word, pas la conversation
     } else if (mode === 'manual') {
       // Manuel : pas de wake word, on attend que l'utilisateur clique
       stopListening()

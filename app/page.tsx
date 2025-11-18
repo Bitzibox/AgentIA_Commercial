@@ -22,6 +22,7 @@ import { AIInsightsEngine, AIInsight, SuggestedAction } from "@/lib/ai-insights"
 import { AIInsightsGeminiEngine } from "@/lib/ai-insights-gemini"
 import { NotificationsPanel } from "@/components/notifications-panel"
 import { QuickAccessCards } from "@/components/quick-access-cards"
+import { insightsCache } from "@/lib/insights-cache"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
@@ -34,7 +35,6 @@ export default function Home() {
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
   const [isLoadingInsights, setIsLoadingInsights] = useState(false)
-  const insightsGeneratedRef = useRef(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -42,10 +42,21 @@ export default function Home() {
     initializeConversation()
   }, [])
 
-  // Générer les insights IA UNIQUEMENT la première fois que businessData est disponible
+  // Charger les insights depuis le cache au montage du composant
   useEffect(() => {
-    // Protection absolue : si déjà généré une fois, ne JAMAIS régénérer
-    if (insightsGeneratedRef.current) {
+    if (insightsCache.hasInsights()) {
+      const cached = insightsCache.getInsights()
+      setAiInsights(cached.insights)
+      setSuggestedActions(cached.actions)
+      console.log('[Dashboard] Loaded insights from cache')
+    }
+  }, [])
+
+  // Générer les insights IA UNIQUEMENT si pas en cache et que les données sont disponibles
+  useEffect(() => {
+    // Si déjà en cache, ne rien faire
+    if (insightsCache.hasInsights()) {
+      console.log('[Dashboard] Insights already in cache, skipping generation')
       return
     }
 
@@ -54,8 +65,7 @@ export default function Home() {
       return
     }
 
-    // Marquer immédiatement comme généré pour éviter les doubles appels
-    insightsGeneratedRef.current = true
+    console.log('[Dashboard] No cache found, generating insights...')
 
     const generateInitialInsights = async () => {
       setIsLoadingInsights(true)
@@ -65,11 +75,13 @@ export default function Home() {
           const actions = await AIInsightsGeminiEngine.generateSuggestedActions(businessData)
           setAiInsights(insights)
           setSuggestedActions(actions)
+          insightsCache.setInsights(insights, actions) // Mettre en cache
         } else {
           const insights = AIInsightsEngine.generateInsights(businessData)
           const actions = AIInsightsEngine.generateSuggestedActions(businessData)
           setAiInsights(insights)
           setSuggestedActions(actions)
+          insightsCache.setInsights(insights, actions) // Mettre en cache
         }
       } catch (error) {
         console.error("Erreur génération insights:", error)
@@ -78,6 +90,7 @@ export default function Home() {
         const actions = AIInsightsEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
+        insightsCache.setInsights(insights, actions) // Mettre en cache
       } finally {
         setIsLoadingInsights(false)
       }
@@ -85,7 +98,7 @@ export default function Home() {
 
     generateInitialInsights()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessData]) // Surveille businessData, mais useRef empêche la régénération
+  }, [businessData, useGeminiForInsights])
 
   const initializeConversation = () => {
     const conversation = conversationManager.getOrCreateActiveConversation()
@@ -172,12 +185,15 @@ export default function Home() {
     if (confirm("Êtes-vous sûr de vouloir réinitialiser toutes les données ?")) {
       dataManager.resetToDemo()
       loadData()
-      insightsGeneratedRef.current = false // Permettre une nouvelle génération
+      insightsCache.clear() // Vider le cache pour permettre une nouvelle génération
     }
   }
 
   const handleRefreshInsights = async () => {
     if (!businessData) return
+
+    console.log('[Dashboard] Manual refresh requested')
+    insightsCache.clear() // Vider le cache
     setIsLoadingInsights(true)
 
     try {
@@ -186,11 +202,13 @@ export default function Home() {
         const actions = await AIInsightsGeminiEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
+        insightsCache.setInsights(insights, actions) // Mettre en cache
       } else {
         const insights = AIInsightsEngine.generateInsights(businessData)
         const actions = AIInsightsEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
+        insightsCache.setInsights(insights, actions) // Mettre en cache
       }
     } catch (error) {
       console.error("Erreur régénération insights:", error)
@@ -199,6 +217,7 @@ export default function Home() {
       const actions = AIInsightsEngine.generateSuggestedActions(businessData)
       setAiInsights(insights)
       setSuggestedActions(actions)
+      insightsCache.setInsights(insights, actions) // Mettre en cache
     } finally {
       setIsLoadingInsights(false)
     }
