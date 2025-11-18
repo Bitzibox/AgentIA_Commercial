@@ -33,8 +33,8 @@ export default function Home() {
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
-  const [isLoadingInsights, setIsLoadingInsights] = useState(true)
-  const [insightsGenerated, setInsightsGenerated] = useState(false)
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false)
+  const [needsInsightsGeneration, setNeedsInsightsGeneration] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
@@ -42,15 +42,10 @@ export default function Home() {
     initializeConversation()
   }, [])
 
-  // Générer les insights IA quand les données changent (avec cache optimisé)
+  // Générer les insights IA uniquement quand nécessaire (pas à chaque changement d'onglet)
   useEffect(() => {
     if (!businessData) return
-
-    // Si les insights ont déjà été générés et qu'on revient juste sur le dashboard, ne pas regénérer
-    if (insightsGenerated && aiInsights.length > 0) {
-      setIsLoadingInsights(false)
-      return
-    }
+    if (!needsInsightsGeneration) return
 
     const generateAIInsights = async () => {
       setIsLoadingInsights(true)
@@ -68,7 +63,7 @@ export default function Home() {
           setAiInsights(insights)
           setSuggestedActions(actions)
         }
-        setInsightsGenerated(true)
+        setNeedsInsightsGeneration(false)
       } catch (error) {
         console.error("Erreur génération insights:", error)
         // Fallback sur règles en cas d'erreur
@@ -76,7 +71,7 @@ export default function Home() {
         const actions = AIInsightsEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
-        setInsightsGenerated(true)
+        setNeedsInsightsGeneration(false)
       } finally {
         setIsLoadingInsights(false)
       }
@@ -84,7 +79,7 @@ export default function Home() {
 
     generateAIInsights()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessData, useGeminiForInsights])
+  }, [needsInsightsGeneration, useGeminiForInsights])
 
   const initializeConversation = () => {
     const conversation = conversationManager.getOrCreateActiveConversation()
@@ -115,37 +110,37 @@ export default function Home() {
   const handleAddDeal = (deal: Omit<Deal, "id">) => {
     dataManager.addDeal(deal)
     loadData()
-    setInsightsGenerated(false) // Forcer la régénération des insights
+    setNeedsInsightsGeneration(true) // Forcer la régénération des insights
   }
 
   const handleUpdateDeal = (id: string, updates: Partial<Deal>) => {
     dataManager.updateDeal(id, updates)
     loadData()
-    setInsightsGenerated(false) // Forcer la régénération des insights
+    setNeedsInsightsGeneration(true) // Forcer la régénération des insights
   }
 
   const handleDeleteDeal = (id: string) => {
     dataManager.deleteDeal(id)
     loadData()
-    setInsightsGenerated(false) // Forcer la régénération des insights
+    setNeedsInsightsGeneration(true) // Forcer la régénération des insights
   }
 
   const handleAddAction = (action: Omit<ActionItem, "id">) => {
     dataManager.addAction(action)
     loadData()
-    setInsightsGenerated(false) // Forcer la régénération des insights
+    setNeedsInsightsGeneration(true) // Forcer la régénération des insights
   }
 
   const handleUpdateAction = (id: string, updates: Partial<ActionItem>) => {
     dataManager.updateAction(id, updates)
     loadData()
-    setInsightsGenerated(false) // Forcer la régénération des insights
+    setNeedsInsightsGeneration(true) // Forcer la régénération des insights
   }
 
   const handleDeleteAction = (id: string) => {
     dataManager.deleteAction(id)
     loadData()
-    setInsightsGenerated(false) // Forcer la régénération des insights
+    setNeedsInsightsGeneration(true) // Forcer la régénération des insights
   }
 
   const handleUpdateMetrics = (metrics: BusinessMetrics) => {
@@ -177,39 +172,12 @@ export default function Home() {
     if (confirm("Êtes-vous sûr de vouloir réinitialiser toutes les données ?")) {
       dataManager.resetToDemo()
       loadData()
-      setInsightsGenerated(false) // Forcer la régénération des insights
+      setNeedsInsightsGeneration(true) // Forcer la régénération des insights
     }
   }
 
-  const handleRefreshInsights = async () => {
-    if (!businessData) return
-    setInsightsGenerated(false) // Réinitialiser le cache
-    setIsLoadingInsights(true)
-
-    try {
-      if (useGeminiForInsights) {
-        const insights = await AIInsightsGeminiEngine.generateInsights(businessData)
-        const actions = await AIInsightsGeminiEngine.generateSuggestedActions(businessData)
-        setAiInsights(insights)
-        setSuggestedActions(actions)
-      } else {
-        const insights = AIInsightsEngine.generateInsights(businessData)
-        const actions = AIInsightsEngine.generateSuggestedActions(businessData)
-        setAiInsights(insights)
-        setSuggestedActions(actions)
-      }
-      setInsightsGenerated(true)
-    } catch (error) {
-      console.error("Erreur régénération insights:", error)
-      // Fallback sur règles
-      const insights = AIInsightsEngine.generateInsights(businessData)
-      const actions = AIInsightsEngine.generateSuggestedActions(businessData)
-      setAiInsights(insights)
-      setSuggestedActions(actions)
-      setInsightsGenerated(true)
-    } finally {
-      setIsLoadingInsights(false)
-    }
+  const handleRefreshInsights = () => {
+    setNeedsInsightsGeneration(true) // Déclencher la régénération
   }
 
   const handleExportData = () => {
