@@ -33,6 +33,7 @@ export default function Home() {
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
+  const [isLoadingInsights, setIsLoadingInsights] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
@@ -45,6 +46,7 @@ export default function Home() {
     if (!businessData) return
 
     const generateAIInsights = async () => {
+      setIsLoadingInsights(true)
       try {
         if (useGeminiForInsights) {
           // Générer avec Gemini
@@ -66,6 +68,8 @@ export default function Home() {
         const actions = AIInsightsEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
+      } finally {
+        setIsLoadingInsights(false)
       }
     }
 
@@ -330,7 +334,49 @@ export default function Home() {
             {/* IA Insights en premier (conditionnel) */}
             {showInsights && (
               <div className="animate-in slide-in-from-top duration-300">
-                <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+                {isLoadingInsights ? (
+                  <Card className="shadow-xl border-2 border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-950/50 dark:to-pink-950/50 backdrop-blur-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg">
+                            <Sparkles className="h-5 w-5 text-white animate-pulse" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              Génération des insights IA...
+                            </CardTitle>
+                            <CardDescription>
+                              Analyse intelligente de votre activité en cours
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <div className="px-6 pb-6">
+                      <div className="space-y-3">
+                        {/* Skeleton loaders */}
+                        {[1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className="p-4 rounded-xl border-2 bg-white/50 dark:bg-slate-900/50 animate-pulse"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 bg-purple-200 dark:bg-purple-800 rounded-full shrink-0" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-purple-200 dark:bg-purple-800 rounded w-3/4" />
+                                <div className="h-3 bg-purple-100 dark:bg-purple-900 rounded w-full" />
+                                <div className="h-3 bg-purple-100 dark:bg-purple-900 rounded w-5/6" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                ) : (
+                  <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+                )}
               </div>
             )}
 
