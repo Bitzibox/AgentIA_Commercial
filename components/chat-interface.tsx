@@ -17,8 +17,16 @@ import { useVoice } from "@/hooks/use-voice"
 import { useConversational } from "@/hooks/use-conversational"
 import { IntentDetector } from "@/lib/intent-detector"
 import { VoiceIndicator } from "@/components/voice-indicator"
+import { VoiceSettingsPanel } from "@/components/voice-settings-panel"
 import { DealProposalCard, ActionProposalCard } from "@/components/action-proposal-card"
 import { TemplatesModal } from "@/components/templates-modal"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -1108,6 +1116,29 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
           )}
         </div>
       </div>
+
+      {/* Modal de paramètres vocaux */}
+      <Dialog open={showVoiceSettings} onOpenChange={setShowVoiceSettings}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Paramètres vocaux</DialogTitle>
+            <DialogDescription>
+              Personnalisez votre expérience vocale avec l'assistant IA
+            </DialogDescription>
+          </DialogHeader>
+          <VoiceSettingsPanel
+            settings={voiceSettings}
+            onChange={(newSettings) => {
+              setVoiceSettings(newSettings)
+
+              // Appliquer les changements de mode immédiatement
+              if (newSettings.mode !== voiceSettings.mode) {
+                handleVoiceModeChange(newSettings.mode)
+              }
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
