@@ -45,7 +45,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Label htmlFor="client">Client *</Label>
             <Input
               id="client"
-              value={deal.client || ''}
+              value={deal.client ?? ''}
               onChange={(e) => setDeal({ ...deal, client: e.target.value })}
               placeholder="Nom du client"
             />
@@ -56,7 +56,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Input
               id="amount"
               type="number"
-              value={deal.amount || ''}
+              value={deal.amount ?? ''}
               onChange={(e) => setDeal({ ...deal, amount: parseInt(e.target.value) || 0 })}
               placeholder="50000"
             />
@@ -64,7 +64,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
 
           <div>
             <Label htmlFor="status">Statut</Label>
-            <Select value={deal.status || 'prospect'} onValueChange={(value) => setDeal({ ...deal, status: value as any })}>
+            <Select value={deal.status ?? 'prospect'} onValueChange={(value) => setDeal({ ...deal, status: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -84,7 +84,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
               type="number"
               min="0"
               max="100"
-              value={deal.probability || 50}
+              value={deal.probability ?? 50}
               onChange={(e) => setDeal({ ...deal, probability: parseInt(e.target.value) || 50 })}
             />
           </div>
@@ -93,7 +93,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={deal.description || ''}
+              value={deal.description ?? ''}
               onChange={(e) => setDeal({ ...deal, description: e.target.value })}
               placeholder="Détails supplémentaires..."
               rows={3}
@@ -125,7 +125,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Client :</span>
-            <span className="font-semibold">{deal.client || 'Non spécifié'}</span>
+            <span className="font-semibold">{deal.client ?? 'Non spécifié'}</span>
           </div>
 
           <div className="flex justify-between items-center">
@@ -137,12 +137,12 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Statut :</span>
-            <span className="font-medium capitalize">{deal.status || 'prospect'}</span>
+            <span className="font-medium capitalize">{deal.status ?? 'prospect'}</span>
           </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Probabilité :</span>
-            <span className="font-medium">{deal.probability || 50}%</span>
+            <span className="font-medium">{deal.probability ?? 50}%</span>
           </div>
 
           {deal.description && (
@@ -212,7 +212,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Label htmlFor="title">Titre *</Label>
             <Input
               id="title"
-              value={action.title || ''}
+              value={action.title ?? ''}
               onChange={(e) => setAction({ ...action, title: e.target.value })}
               placeholder="Titre de l'action"
             />
@@ -220,7 +220,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
 
           <div>
             <Label htmlFor="type">Type *</Label>
-            <Select value={action.type || 'call'} onValueChange={(value) => setAction({ ...action, type: value as any })}>
+            <Select value={action.type ?? 'call'} onValueChange={(value) => setAction({ ...action, type: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -235,7 +235,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
 
           <div>
             <Label htmlFor="priority">Priorité *</Label>
-            <Select value={action.priority || 'medium'} onValueChange={(value) => setAction({ ...action, priority: value as any })}>
+            <Select value={action.priority ?? 'medium'} onValueChange={(value) => setAction({ ...action, priority: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -252,7 +252,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Input
               id="dueDate"
               type="date"
-              value={action.dueDate || ''}
+              value={action.dueDate ?? ''}
               onChange={(e) => setAction({ ...action, dueDate: e.target.value })}
             />
           </div>
@@ -261,7 +261,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={action.description || ''}
+              value={action.description ?? ''}
               onChange={(e) => setAction({ ...action, description: e.target.value })}
               placeholder="Détails de l'action..."
               rows={3}
@@ -293,11 +293,11 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Type :</span>
-            <span className="font-medium">{typeLabels[action.type || 'call']}</span>
+            <span className="font-medium">{typeLabels[action.type ?? 'call']}</span>
           </div>
 
           <div className="border-t pt-2">
-            <h4 className="font-semibold text-lg mb-1">{action.title || 'Sans titre'}</h4>
+            <h4 className="font-semibold text-lg mb-1">{action.title ?? 'Sans titre'}</h4>
             {action.description && (
               <p className="text-sm text-muted-foreground">{action.description}</p>
             )}
@@ -326,7 +326,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
                     : 'text-orange-600'
               }`}
             >
-              {priorityLabels[action.priority || 'medium']}
+              {priorityLabels[action.priority ?? 'medium']}
             </span>
           </div>
         </div>
