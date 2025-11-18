@@ -34,6 +34,7 @@ export default function Home() {
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
   const [isLoadingInsights, setIsLoadingInsights] = useState(true)
+  const [insightsGenerated, setInsightsGenerated] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -41,9 +42,12 @@ export default function Home() {
     initializeConversation()
   }, [])
 
-  // Générer les insights IA quand les données changent
+  // Générer les insights IA quand les données changent (avec cache)
   useEffect(() => {
     if (!businessData) return
+
+    // Si les insights ont déjà été générés et qu'on revient juste sur le dashboard, ne pas regénérer
+    if (insightsGenerated && aiInsights.length > 0) return
 
     const generateAIInsights = async () => {
       setIsLoadingInsights(true)
@@ -61,6 +65,7 @@ export default function Home() {
           setAiInsights(insights)
           setSuggestedActions(actions)
         }
+        setInsightsGenerated(true)
       } catch (error) {
         console.error("Erreur génération insights:", error)
         // Fallback sur règles en cas d'erreur
@@ -68,13 +73,14 @@ export default function Home() {
         const actions = AIInsightsEngine.generateSuggestedActions(businessData)
         setAiInsights(insights)
         setSuggestedActions(actions)
+        setInsightsGenerated(true)
       } finally {
         setIsLoadingInsights(false)
       }
     }
 
     generateAIInsights()
-  }, [businessData, useGeminiForInsights])
+  }, [businessData, useGeminiForInsights, insightsGenerated, aiInsights.length])
 
   const initializeConversation = () => {
     const conversation = conversationManager.getOrCreateActiveConversation()
@@ -105,31 +111,37 @@ export default function Home() {
   const handleAddDeal = (deal: Omit<Deal, "id">) => {
     dataManager.addDeal(deal)
     loadData()
+    setInsightsGenerated(false) // Forcer la régénération des insights
   }
 
   const handleUpdateDeal = (id: string, updates: Partial<Deal>) => {
     dataManager.updateDeal(id, updates)
     loadData()
+    setInsightsGenerated(false) // Forcer la régénération des insights
   }
 
   const handleDeleteDeal = (id: string) => {
     dataManager.deleteDeal(id)
     loadData()
+    setInsightsGenerated(false) // Forcer la régénération des insights
   }
 
   const handleAddAction = (action: Omit<ActionItem, "id">) => {
     dataManager.addAction(action)
     loadData()
+    setInsightsGenerated(false) // Forcer la régénération des insights
   }
 
   const handleUpdateAction = (id: string, updates: Partial<ActionItem>) => {
     dataManager.updateAction(id, updates)
     loadData()
+    setInsightsGenerated(false) // Forcer la régénération des insights
   }
 
   const handleDeleteAction = (id: string) => {
     dataManager.deleteAction(id)
     loadData()
+    setInsightsGenerated(false) // Forcer la régénération des insights
   }
 
   const handleUpdateMetrics = (metrics: BusinessMetrics) => {
@@ -379,53 +391,23 @@ export default function Home() {
 
           {/* Deals Tab */}
           <TabsContent value="deals" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <DealsList
-                  deals={businessData.topDeals}
-                  businessContext={businessData}
-                  onAdd={handleAddDeal}
-                  onUpdate={handleUpdateDeal}
-                  onDelete={handleDeleteDeal}
-                />
-              </div>
-              <div className="space-y-6">
-                <div className="h-[600px]">
-                  {activeConversationId && (
-                    <ChatInterface
-                      businessContext={businessData}
-                      conversationId={activeConversationId}
-                      onConversationUpdate={handleConversationUpdate}
-                      disableAutoScroll={true}
-                      key={`chat-deals-${activeConversationId}`}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
+            <DealsList
+              deals={businessData.topDeals}
+              businessContext={businessData}
+              onAdd={handleAddDeal}
+              onUpdate={handleUpdateDeal}
+              onDelete={handleDeleteDeal}
+            />
           </TabsContent>
 
           {/* Actions Tab */}
           <TabsContent value="actions" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <ActionItems
-                items={businessData.actionItems}
-                onAdd={handleAddAction}
-                onUpdate={handleUpdateAction}
-                onDelete={handleDeleteAction}
-              />
-              <div className="h-[600px]">
-                {activeConversationId && (
-                  <ChatInterface
-                    businessContext={businessData}
-                    conversationId={activeConversationId}
-                    onConversationUpdate={handleConversationUpdate}
-                    disableAutoScroll={true}
-                    key={`chat-actions-${activeConversationId}`}
-                  />
-                )}
-              </div>
-            </div>
+            <ActionItems
+              items={businessData.actionItems}
+              onAdd={handleAddAction}
+              onUpdate={handleUpdateAction}
+              onDelete={handleDeleteAction}
+            />
           </TabsContent>
 
           {/* Configuration Tab */}
