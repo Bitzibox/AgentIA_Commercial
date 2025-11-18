@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +18,12 @@ interface NotificationsPanelProps {
 export function NotificationsPanel({ businessContext, onNavigate }: NotificationsPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [mounted, setMounted] = useState(false)
+
+  // S'assurer que le composant est monté côté client
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Générer les notifications au chargement et quand le contexte change
   useEffect(() => {
@@ -66,28 +73,11 @@ export function NotificationsPanel({ businessContext, onNavigate }: Notification
     }
   }
 
-  return (
-    <div className="relative">
-      {/* Notification Bell Button */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative"
-      >
-        <Bell className="h-4 w-4" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold animate-pulse">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
-      </Button>
-
-      {/* Notifications Panel */}
-      {isOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-end p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-in slide-in-from-right duration-300 relative z-[10000]">
-            <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 sticky top-0 z-[10001]">
+  // Créer le contenu du panneau de notifications
+  const notificationsPanel = isOpen && mounted ? (
+    <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-end p-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-in slide-in-from-right duration-300 relative z-[10000]">
+        <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 sticky top-0 z-[10001]">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
@@ -209,7 +199,27 @@ export function NotificationsPanel({ businessContext, onNavigate }: Notification
             </CardContent>
           </Card>
         </div>
-      )}
-    </div>
+  ) : null
+
+  return (
+    <>
+      {/* Notification Bell Button */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative"
+      >
+        <Bell className="h-4 w-4" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold animate-pulse">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </Button>
+
+      {/* Panneau de notifications rendu via Portal au niveau du document */}
+      {mounted && notificationsPanel && createPortal(notificationsPanel, document.body)}
+    </>
   )
 }
