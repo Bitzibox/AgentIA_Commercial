@@ -13,11 +13,13 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { dataManager } from "@/lib/data-manager"
 import { conversationManager } from "@/lib/conversation-manager"
 import { BusinessContext, Deal, BusinessMetrics, Lead, Activity, ActionItem } from "@/types"
-import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings } from "lucide-react"
+import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings, Eye, EyeOff } from "lucide-react"
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
 import { AIInsights } from "@/components/ai-insights"
+import { AIInsightsEngine, AIInsight, SuggestedAction } from "@/lib/ai-insights"
+import { AIInsightsGeminiEngine } from "@/lib/ai-insights-gemini"
 import { NotificationsPanel } from "@/components/notifications-panel"
 import { QuickAccessCards } from "@/components/quick-access-cards"
 
@@ -27,12 +29,48 @@ export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [conversationKey, setConversationKey] = useState(0)
   const [activeTab, setActiveTab] = useState("dashboard")
+  const [showInsights, setShowInsights] = useState(true)
+  const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
+  const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
+  const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
     loadData()
     initializeConversation()
   }, [])
+
+  // Générer les insights IA quand les données changent
+  useEffect(() => {
+    if (!businessData) return
+
+    const generateAIInsights = async () => {
+      try {
+        if (useGeminiForInsights) {
+          // Générer avec Gemini
+          const insights = await AIInsightsGeminiEngine.generateInsights(businessData)
+          const actions = await AIInsightsGeminiEngine.generateSuggestedActions(businessData)
+          setAiInsights(insights)
+          setSuggestedActions(actions)
+        } else {
+          // Générer avec règles
+          const insights = AIInsightsEngine.generateInsights(businessData)
+          const actions = AIInsightsEngine.generateSuggestedActions(businessData)
+          setAiInsights(insights)
+          setSuggestedActions(actions)
+        }
+      } catch (error) {
+        console.error("Erreur génération insights:", error)
+        // Fallback sur règles en cas d'erreur
+        const insights = AIInsightsEngine.generateInsights(businessData)
+        const actions = AIInsightsEngine.generateSuggestedActions(businessData)
+        setAiInsights(insights)
+        setSuggestedActions(actions)
+      }
+    }
+
+    generateAIInsights()
+  }, [businessData, useGeminiForInsights])
 
   const initializeConversation = () => {
     const conversation = conversationManager.getOrCreateActiveConversation()
@@ -266,8 +304,35 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* IA Insights en premier */}
-            <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+            {/* Bouton pour afficher/masquer les insights IA */}
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowInsights(!showInsights)}
+                variant="outline"
+                size="sm"
+                className="gap-2 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+              >
+                {showInsights ? (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    Masquer les insights IA
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4" />
+                    Afficher les insights IA
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* IA Insights en premier (conditionnel) */}
+            {showInsights && (
+              <div className="animate-in slide-in-from-top duration-300">
+                <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+              </div>
+            )}
 
             <MetricsDashboard metrics={businessData.metrics} />
 
@@ -292,7 +357,11 @@ export default function Home() {
               <div className="flex-1 overflow-hidden">
                 {activeConversationId && (
                   <ChatInterface
-                    businessContext={businessData}
+                    businessContext={{
+                      ...businessData,
+                      aiInsights,
+                      suggestedActions,
+                    }}
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
                     disableAutoScroll={true}
