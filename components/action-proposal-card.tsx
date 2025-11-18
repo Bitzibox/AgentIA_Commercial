@@ -25,10 +25,16 @@ interface DealProposalCardProps {
 
 export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: DealProposalCardProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [deal, setDeal] = useState(initialDeal)
+  const [deal, setDeal] = useState<Partial<Deal>>(initialDeal)
 
   const handleConfirm = () => {
     onConfirm(deal)
+  }
+
+  // Helper pour accéder aux propriétés de manière type-safe
+  const getValue = <K extends keyof Deal>(key: K, defaultValue: Deal[K]): Deal[K] => {
+    const value = deal[key]
+    return value !== undefined ? value : defaultValue
   }
 
   if (isEditing) {
@@ -45,7 +51,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Label htmlFor="client">Client *</Label>
             <Input
               id="client"
-              value={deal.client ?? ''}
+              value={getValue('client', '')}
               onChange={(e) => setDeal({ ...deal, client: e.target.value })}
               placeholder="Nom du client"
             />
@@ -56,7 +62,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Input
               id="amount"
               type="number"
-              value={deal.amount ?? ''}
+              value={getValue('amount', 0)}
               onChange={(e) => setDeal({ ...deal, amount: parseInt(e.target.value) || 0 })}
               placeholder="50000"
             />
@@ -64,7 +70,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
 
           <div>
             <Label htmlFor="status">Statut</Label>
-            <Select value={deal.status ?? 'prospect'} onValueChange={(value) => setDeal({ ...deal, status: value as any })}>
+            <Select value={getValue('status', 'prospect')} onValueChange={(value) => setDeal({ ...deal, status: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -84,7 +90,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
               type="number"
               min="0"
               max="100"
-              value={deal.probability ?? 50}
+              value={getValue('probability', 50)}
               onChange={(e) => setDeal({ ...deal, probability: parseInt(e.target.value) || 50 })}
             />
           </div>
@@ -93,7 +99,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={deal.description ?? ''}
+              value={getValue('description', '')}
               onChange={(e) => setDeal({ ...deal, description: e.target.value })}
               placeholder="Détails supplémentaires..."
               rows={3}
@@ -125,30 +131,30 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Client :</span>
-            <span className="font-semibold">{deal.client ?? 'Non spécifié'}</span>
+            <span className="font-semibold">{getValue('client', '') || 'Non spécifié'}</span>
           </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Montant :</span>
             <span className="font-semibold text-blue-600 text-lg">
-              {deal.amount ? formatCurrency(deal.amount) : '0 €'}
+              {getValue('amount', 0) > 0 ? formatCurrency(getValue('amount', 0)) : '0 €'}
             </span>
           </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Statut :</span>
-            <span className="font-medium capitalize">{deal.status ?? 'prospect'}</span>
+            <span className="font-medium capitalize">{getValue('status', 'prospect')}</span>
           </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Probabilité :</span>
-            <span className="font-medium">{deal.probability ?? 50}%</span>
+            <span className="font-medium">{getValue('probability', 50)}%</span>
           </div>
 
-          {deal.description && (
+          {getValue('description', '') && (
             <div className="pt-2 border-t">
               <span className="text-sm text-muted-foreground block mb-1">Description :</span>
-              <p className="text-sm">{deal.description}</p>
+              <p className="text-sm">{getValue('description', '')}</p>
             </div>
           )}
         </div>
@@ -179,10 +185,16 @@ interface ActionProposalCardProps {
 
 export function ActionProposalCard({ action: initialAction, onConfirm, onCancel }: ActionProposalCardProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [action, setAction] = useState(initialAction)
+  const [action, setAction] = useState<Partial<ActionItem>>(initialAction)
 
   const handleConfirm = () => {
     onConfirm(action)
+  }
+
+  // Helper pour accéder aux propriétés de manière type-safe
+  const getValue = <K extends keyof ActionItem>(key: K, defaultValue: ActionItem[K]): ActionItem[K] => {
+    const value = action[key]
+    return value !== undefined ? value : defaultValue
   }
 
   const typeLabels: Record<string, string> = {
@@ -212,7 +224,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Label htmlFor="title">Titre *</Label>
             <Input
               id="title"
-              value={action.title ?? ''}
+              value={getValue('title', '')}
               onChange={(e) => setAction({ ...action, title: e.target.value })}
               placeholder="Titre de l'action"
             />
@@ -220,7 +232,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
 
           <div>
             <Label htmlFor="type">Type *</Label>
-            <Select value={action.type ?? 'call'} onValueChange={(value) => setAction({ ...action, type: value as any })}>
+            <Select value={getValue('type', 'call')} onValueChange={(value) => setAction({ ...action, type: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -235,7 +247,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
 
           <div>
             <Label htmlFor="priority">Priorité *</Label>
-            <Select value={action.priority ?? 'medium'} onValueChange={(value) => setAction({ ...action, priority: value as any })}>
+            <Select value={getValue('priority', 'medium')} onValueChange={(value) => setAction({ ...action, priority: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -252,7 +264,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Input
               id="dueDate"
               type="date"
-              value={action.dueDate ?? ''}
+              value={getValue('dueDate', '')}
               onChange={(e) => setAction({ ...action, dueDate: e.target.value })}
             />
           </div>
@@ -261,7 +273,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={action.description ?? ''}
+              value={getValue('description', '')}
               onChange={(e) => setAction({ ...action, description: e.target.value })}
               placeholder="Détails de l'action..."
               rows={3}
@@ -293,21 +305,21 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Type :</span>
-            <span className="font-medium">{typeLabels[action.type ?? 'call']}</span>
+            <span className="font-medium">{typeLabels[getValue('type', 'call')]}</span>
           </div>
 
           <div className="border-t pt-2">
-            <h4 className="font-semibold text-lg mb-1">{action.title ?? 'Sans titre'}</h4>
-            {action.description && (
-              <p className="text-sm text-muted-foreground">{action.description}</p>
+            <h4 className="font-semibold text-lg mb-1">{getValue('title', '') || 'Sans titre'}</h4>
+            {getValue('description', '') && (
+              <p className="text-sm text-muted-foreground">{getValue('description', '')}</p>
             )}
           </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Échéance :</span>
             <span className="font-medium">
-              {action.dueDate
-                ? new Date(action.dueDate).toLocaleDateString('fr-FR', {
+              {getValue('dueDate', '')
+                ? new Date(getValue('dueDate', '')).toLocaleDateString('fr-FR', {
                     day: 'numeric',
                     month: 'long',
                   })
@@ -319,14 +331,14 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <span className="text-sm text-muted-foreground">Priorité :</span>
             <span
               className={`font-medium ${
-                action.priority === 'high'
+                getValue('priority', 'medium') === 'high'
                   ? 'text-red-600'
-                  : action.priority === 'low'
+                  : getValue('priority', 'medium') === 'low'
                     ? 'text-gray-600'
                     : 'text-orange-600'
               }`}
             >
-              {priorityLabels[action.priority ?? 'medium']}
+              {priorityLabels[getValue('priority', 'medium')]}
             </span>
           </div>
         </div>
