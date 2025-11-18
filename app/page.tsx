@@ -42,12 +42,15 @@ export default function Home() {
     initializeConversation()
   }, [])
 
-  // Générer les insights IA quand les données changent (avec cache)
+  // Générer les insights IA quand les données changent (avec cache optimisé)
   useEffect(() => {
     if (!businessData) return
 
     // Si les insights ont déjà été générés et qu'on revient juste sur le dashboard, ne pas regénérer
-    if (insightsGenerated && aiInsights.length > 0) return
+    if (insightsGenerated && aiInsights.length > 0) {
+      setIsLoadingInsights(false)
+      return
+    }
 
     const generateAIInsights = async () => {
       setIsLoadingInsights(true)
@@ -80,7 +83,8 @@ export default function Home() {
     }
 
     generateAIInsights()
-  }, [businessData, useGeminiForInsights, insightsGenerated, aiInsights.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessData, useGeminiForInsights])
 
   const initializeConversation = () => {
     const conversation = conversationManager.getOrCreateActiveConversation()
@@ -173,6 +177,38 @@ export default function Home() {
     if (confirm("Êtes-vous sûr de vouloir réinitialiser toutes les données ?")) {
       dataManager.resetToDemo()
       loadData()
+      setInsightsGenerated(false) // Forcer la régénération des insights
+    }
+  }
+
+  const handleRefreshInsights = async () => {
+    if (!businessData) return
+    setInsightsGenerated(false) // Réinitialiser le cache
+    setIsLoadingInsights(true)
+
+    try {
+      if (useGeminiForInsights) {
+        const insights = await AIInsightsGeminiEngine.generateInsights(businessData)
+        const actions = await AIInsightsGeminiEngine.generateSuggestedActions(businessData)
+        setAiInsights(insights)
+        setSuggestedActions(actions)
+      } else {
+        const insights = AIInsightsEngine.generateInsights(businessData)
+        const actions = AIInsightsEngine.generateSuggestedActions(businessData)
+        setAiInsights(insights)
+        setSuggestedActions(actions)
+      }
+      setInsightsGenerated(true)
+    } catch (error) {
+      console.error("Erreur régénération insights:", error)
+      // Fallback sur règles
+      const insights = AIInsightsEngine.generateInsights(businessData)
+      const actions = AIInsightsEngine.generateSuggestedActions(businessData)
+      setAiInsights(insights)
+      setSuggestedActions(actions)
+      setInsightsGenerated(true)
+    } finally {
+      setIsLoadingInsights(false)
     }
   }
 
@@ -320,24 +356,32 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Bouton pour afficher/masquer les insights IA */}
-            <div className="flex justify-end">
+            {/* Boutons pour gérer les insights IA */}
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={handleRefreshInsights}
+                variant="outline"
+                size="sm"
+                className="gap-2 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                disabled={isLoadingInsights}
+                title="Actualiser les conseils IA"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoadingInsights ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Actualiser les conseils IA</span>
+              </Button>
               <Button
                 onClick={() => setShowInsights(!showInsights)}
                 variant="outline"
                 size="sm"
                 className="gap-2 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                title={showInsights ? "Masquer les insights IA" : "Afficher les insights IA"}
               >
                 {showInsights ? (
-                  <>
-                    <EyeOff className="h-4 w-4" />
-                    Masquer les insights IA
-                  </>
+                  <EyeOff className="h-4 w-4" />
                 ) : (
                   <>
                     <Eye className="h-4 w-4" />
                     <Sparkles className="h-4 w-4" />
-                    Afficher les insights IA
                   </>
                 )}
               </Button>
