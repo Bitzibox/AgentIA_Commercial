@@ -45,7 +45,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Label htmlFor="client">Client *</Label>
             <Input
               id="client"
-              value={deal.client ?? ''}
+              value={(deal.client as string | undefined) ?? ''}
               onChange={(e) => setDeal({ ...deal, client: e.target.value })}
               placeholder="Nom du client"
             />
@@ -56,7 +56,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Input
               id="amount"
               type="number"
-              value={deal.amount ?? 0}
+              value={(deal.amount as number | undefined) ?? 0}
               onChange={(e) => setDeal({ ...deal, amount: parseInt(e.target.value) || 0 })}
               placeholder="50000"
             />
@@ -64,7 +64,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
 
           <div>
             <Label htmlFor="status">Statut</Label>
-            <Select value={deal.status ?? 'prospect'} onValueChange={(value) => setDeal({ ...deal, status: value as any })}>
+            <Select value={(deal.status as string | undefined) ?? 'prospect'} onValueChange={(value) => setDeal({ ...deal, status: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -84,7 +84,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
               type="number"
               min="0"
               max="100"
-              value={deal.probability ?? 50}
+              value={(deal.probability as number | undefined) ?? 50}
               onChange={(e) => setDeal({ ...deal, probability: parseInt(e.target.value) || 50 })}
             />
           </div>
@@ -93,7 +93,7 @@ export function DealProposalCard({ deal: initialDeal, onConfirm, onCancel }: Dea
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={deal.description ?? ''}
+              value={(deal.description as string | undefined) ?? ''}
               onChange={(e) => setDeal({ ...deal, description: e.target.value })}
               placeholder="Détails supplémentaires..."
               rows={3}
@@ -212,7 +212,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Label htmlFor="title">Titre *</Label>
             <Input
               id="title"
-              value={action.title ?? ''}
+              value={(action.title as string | undefined) ?? ''}
               onChange={(e) => setAction({ ...action, title: e.target.value })}
               placeholder="Titre de l'action"
             />
@@ -220,7 +220,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
 
           <div>
             <Label htmlFor="type">Type *</Label>
-            <Select value={action.type ?? 'call'} onValueChange={(value) => setAction({ ...action, type: value as any })}>
+            <Select value={(action.type as string | undefined) ?? 'call'} onValueChange={(value) => setAction({ ...action, type: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -235,7 +235,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
 
           <div>
             <Label htmlFor="priority">Priorité *</Label>
-            <Select value={action.priority ?? 'medium'} onValueChange={(value) => setAction({ ...action, priority: value as any })}>
+            <Select value={(action.priority as string | undefined) ?? 'medium'} onValueChange={(value) => setAction({ ...action, priority: value as any })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -252,7 +252,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Input
               id="dueDate"
               type="date"
-              value={action.dueDate ?? ''}
+              value={(action.dueDate as string | undefined) ?? ''}
               onChange={(e) => setAction({ ...action, dueDate: e.target.value })}
             />
           </div>
@@ -261,7 +261,7 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={action.description ?? ''}
+              value={(action.description as string | undefined) ?? ''}
               onChange={(e) => setAction({ ...action, description: e.target.value })}
               placeholder="Détails de l'action..."
               rows={3}
