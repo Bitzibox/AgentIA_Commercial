@@ -164,7 +164,8 @@ export function useVoice(
       console.error('[Voice] Failed to start recognition:', e)
       setError("Impossible de démarrer la reconnaissance vocale")
     }
-  }, [settings.mode, voiceState, settings.language])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.mode])
 
   // Wake word détecté
   const onWakeWordDetected = useCallback(() => {
@@ -185,6 +186,7 @@ export function useVoice(
       // Démarrer l'écoute de la conversation
       startConversationListening()
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playActivationSound])
 
   // Écoute de la conversation
@@ -409,6 +411,7 @@ export function useVoice(
     stopListening,
     speak,
     returnToWakeWordMode,
-    startConversationListening
+    startConversationListening,
+    startWakeWordListening, // Exposer pour le mode automatique
   }
 }
