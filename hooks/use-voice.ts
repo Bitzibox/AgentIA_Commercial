@@ -15,6 +15,8 @@ export function useVoice(
 
   const recognitionRef = useRef<any>(null)
   const synthesisRef = useRef<SpeechSynthesis | null>(null)
+  const interruptionRecognitionRef = useRef<any>(null) // Pour l'écoute d'interruption
+  const isListeningForInterruptionRef = useRef<boolean>(false)
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isRecognitionActiveRef = useRef<boolean>(false) // Track if recognition is currently active
@@ -38,6 +40,52 @@ export function useVoice(
     recognitionRef.current.lang = settings.language || 'fr-FR'
     recognitionRef.current.maxAlternatives = 1
 
+    // Initialiser l'instance de reconnaissance pour les interruptions
+    interruptionRecognitionRef.current = new SpeechRecognition()
+    interruptionRecognitionRef.current.continuous = true
+    interruptionRecognitionRef.current.interimResults = true
+    interruptionRecognitionRef.current.lang = settings.language || 'fr-FR'
+
+    interruptionRecognitionRef.current.onresult = (event: any) => {
+      // Chercher le dernier résultat final
+      for (let i = event.results.length - 1; i >= 0; i--) {
+        if (event.results[i].isFinal) {
+          const transcript = event.results[i][0].transcript.trim()
+
+          // Ignorer les transcripts vides ou très courts
+          if (transcript.length < 2) continue
+
+          console.log('[Voice] Interruption détectée:', transcript)
+
+          // Arrêter l'écoute d'interruption
+          stopListeningForInterruption()
+
+          // Arrêter la synthèse vocale
+          if (synthesisRef.current) {
+            synthesisRef.current.cancel()
+          }
+
+          // Traiter la parole de l'utilisateur
+          onTranscript(transcript, true)
+          setInterimTranscript('')
+          break
+        }
+      }
+    }
+
+    interruptionRecognitionRef.current.onend = () => {
+      isListeningForInterruptionRef.current = false
+      console.log('[Voice] Écoute d\'interruption terminée')
+    }
+
+    interruptionRecognitionRef.current.onerror = (event: any) => {
+      console.error('[Voice] Erreur écoute interruption:', event.error)
+      // Ne pas traiter comme une erreur fatale
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        isListeningForInterruptionRef.current = false
+      }
+    }
+
     synthesisRef.current = window.speechSynthesis
 
     return () => {
@@ -48,6 +96,13 @@ export function useVoice(
           console.log('Recognition already stopped')
         }
       }
+      if (interruptionRecognitionRef.current) {
+        try {
+          interruptionRecognitionRef.current.stop()
+        } catch (e) {
+          console.log('Interruption recognition already stopped')
+        }
+      }
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current)
       }
@@ -56,8 +111,9 @@ export function useVoice(
       }
       isRecognitionActiveRef.current = false
       isPendingRestartRef.current = false
+      isListeningForInterruptionRef.current = false
     }
-  }, [settings.language])
+  }, [settings.language, onTranscript])
 
   // Son d'activation (bip)
   const playActivationSound = useCallback(() => {
@@ -410,6 +466,40 @@ export function useVoice(
     setInterimTranscript('')
   }, [])
 
+  // Démarrer l'écoute pour détecter les interruptions
+  const startListeningForInterruption = useCallback(() => {
+    if (!interruptionRecognitionRef.current || isListeningForInterruptionRef.current) {
+      return
+    }
+
+    console.log('[Voice] Démarrage écoute d\'interruption...')
+    isListeningForInterruptionRef.current = true
+
+    try {
+      interruptionRecognitionRef.current.start()
+    } catch (error) {
+      console.error('[Voice] Erreur démarrage écoute interruption:', error)
+      isListeningForInterruptionRef.current = false
+    }
+  }, [])
+
+  // Arrêter l'écoute d'interruption
+  const stopListeningForInterruption = useCallback(() => {
+    if (!interruptionRecognitionRef.current || !isListeningForInterruptionRef.current) {
+      return
+    }
+
+    console.log('[Voice] Arrêt écoute d\'interruption...')
+
+    try {
+      interruptionRecognitionRef.current.stop()
+    } catch (error) {
+      console.error('[Voice] Erreur arrêt écoute interruption:', error)
+    }
+
+    isListeningForInterruptionRef.current = false
+  }, [])
+
   // Retourner en mode wake word
   const returnToWakeWordMode = useCallback(() => {
     console.log('[Voice] Returning to wake word mode...')
@@ -434,8 +524,9 @@ export function useVoice(
 
     console.log('[Voice] Speaking:', text)
 
-    // Arrêter toute parole en cours
+    // Arrêter toute parole en cours et l'écoute d'interruption éventuelle
     synthesisRef.current.cancel()
+    stopListeningForInterruption()
 
     setVoiceState('speaking')
 
@@ -448,20 +539,35 @@ export function useVoice(
     utterance.pitch = 1.0
     utterance.volume = 1.0
 
+    utterance.onstart = () => {
+      console.log('[Voice] Speaking started')
+      // Démarrer l'écoute d'interruption après 1 seconde
+      // pour éviter de capter le début de la synthèse vocale
+      setTimeout(() => {
+        if (synthesisRef.current && synthesisRef.current.speaking) {
+          startListeningForInterruption()
+        }
+      }, 1000)
+    }
+
     utterance.onend = () => {
       console.log('[Voice] Speaking ended')
+      // Arrêter l'écoute d'interruption
+      stopListeningForInterruption()
       setVoiceState('active')
       onEnd?.()
     }
 
     utterance.onerror = (e) => {
       console.error('[Voice] Speech synthesis error:', e)
+      // Arrêter l'écoute d'interruption en cas d'erreur
+      stopListeningForInterruption()
       setVoiceState('active')
       onEnd?.()
     }
 
     synthesisRef.current.speak(utterance)
-  }, [settings.autoSpeak, settings.language, settings.voiceSpeed])
+  }, [settings.autoSpeak, settings.language, settings.voiceSpeed, startListeningForInterruption, stopListeningForInterruption])
 
   // Effets selon le mode
   useEffect(() => {
