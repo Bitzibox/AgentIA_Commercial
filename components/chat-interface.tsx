@@ -211,6 +211,10 @@ export function ChatInterface({
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript.trim()) return
 
+    // Capturer l'état du mode vocal au moment où l'utilisateur parle
+    // pour s'assurer que la réponse sera lue même si le mode change pendant le traitement
+    const shouldSpeakResponse = voiceSettings.autoSpeak && voiceSettings.mode === 'automatic'
+
     // Détecter l'intention du message
     const intent = IntentDetector.detectIntent(transcript, !!pendingAction)
 
@@ -256,8 +260,8 @@ export function ChatInterface({
       }
       setMessages((prev) => [...prev, userMsg])
 
-      // Envoyer à Gemini
-      await handleSendMessage(transcript)
+      // Envoyer à Gemini avec l'indicateur pour lire la réponse
+      await handleSendMessage(transcript, shouldSpeakResponse)
     }
   }
 
@@ -614,7 +618,7 @@ export function ChatInterface({
   }
 
   // Fonction principale pour envoyer un message
-  const handleSendMessage = async (textOverride?: string) => {
+  const handleSendMessage = async (textOverride?: string, shouldSpeak?: boolean) => {
     const messageText = textOverride || input
     if (!messageText.trim() || isLoading) return
 
@@ -720,8 +724,10 @@ export function ChatInterface({
       setMessages((prev) => [...prev, assistantMessage])
       setStreamingMessage("") // Nettoyer le streaming
 
-      // Lire la réponse vocalement si le mode vocal est actif
-      if (voiceSettings.autoSpeak && voiceSettings.mode !== 'disabled' && finalResponse) {
+      // Lire la réponse vocalement si demandé (en mode vocal automatique)
+      // shouldSpeak est défini au moment où l'utilisateur a parlé, pour garantir
+      // que la réponse sera lue même si le mode vocal change pendant le traitement
+      if (shouldSpeak && finalResponse) {
         // Arrêter la reconnaissance pendant que l'assistant parle
         stopListening()
 
@@ -731,12 +737,10 @@ export function ChatInterface({
         // Lire la réponse
         await speak(finalResponse)
 
-        // Redémarrer la reconnaissance en mode wake word si on est en mode automatique
-        if (voiceSettings.mode === 'automatic') {
-          setTimeout(() => {
-            startWakeWordListening()
-          }, 500)
-        }
+        // Redémarrer la reconnaissance en mode wake word
+        setTimeout(() => {
+          startWakeWordListening()
+        }, 500)
       }
     } catch (error: any) {
       console.error("Chat error:", error)
