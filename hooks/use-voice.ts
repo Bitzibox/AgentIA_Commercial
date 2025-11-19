@@ -257,6 +257,7 @@ export function useVoice(
 
     recognitionRef.current.onresult = (event: any) => {
       let interim = ''
+      let hasFinalResult = false
 
       // Réinitialiser le timer d'inactivité dès qu'il y a une activité
       if (isInConversationModeRef.current && inactivityTimerRef.current) {
@@ -290,6 +291,7 @@ export function useVoice(
         if (event.results[i].isFinal) {
           currentTranscriptRef.current += transcript + ' '
           lastResultIndexRef.current = i + 1
+          hasFinalResult = true
           console.log('[Voice] Accumulated transcript:', currentTranscriptRef.current)
         } else {
           interim += transcript
@@ -304,14 +306,17 @@ export function useVoice(
         onTranscript(interim, false)
       }
 
-      // Annuler et recréer le timer de silence à chaque nouveau résultat
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current)
-        silenceTimerRef.current = null
-      }
+      // IMPORTANT : Ne recréer le timer QUE si on a reçu un résultat FINAL
+      // Les résultats intermédiaires ne doivent PAS réinitialiser le timer
+      if (hasFinalResult && currentTranscriptRef.current.trim()) {
+        // Annuler le timer existant
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current)
+          silenceTimerRef.current = null
+        }
 
-      // Créer un nouveau timer seulement s'il y a du contenu accumulé
-      if (currentTranscriptRef.current.trim()) {
+        // Créer un nouveau timer
+        console.log('[Voice] Nouveau résultat final, redémarrage timer de silence 3s')
         silenceTimerRef.current = setTimeout(() => {
           const textToSend = currentTranscriptRef.current.trim()
           console.log('[Voice] Silence detected, sending final transcript:', textToSend)
