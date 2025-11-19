@@ -159,6 +159,7 @@ export default function Home() {
   const handleDeleteAction = (id: string) => {
     dataManager.deleteAction(id)
     loadData()
+  }
 
   const handleAddQuote = (quote: Omit<Quote, "id" | "quoteNumber" | "createdAt" | "expiresAt" | "opened" | "openCount">) => {
     dataManager.addQuote(quote)
@@ -173,7 +174,6 @@ export default function Home() {
   const handleDeleteQuote = (id: string) => {
     dataManager.deleteQuote(id)
     loadData()
-  }
   }
 
   const handleUpdateMetrics = (metrics: BusinessMetrics) => {
@@ -377,13 +377,13 @@ export default function Home() {
               <span className="hidden sm:inline">Actions</span>
             </TabsTrigger>
             <TabsTrigger
-            <TabsTrigger
               value="quotes"
               className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-teal-600 data-[state=active]:text-white transition-all duration-200"
             >
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Devis</span>
             </TabsTrigger>
+            <TabsTrigger
               value="config"
               className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white transition-all duration-200"
             >
@@ -487,8 +487,8 @@ export default function Home() {
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
                     onAddDeal={handleAddDeal}
-                    onAddQuote={handleAddQuote}
                     onAddAction={handleAddAction}
+                    onAddQuote={handleAddQuote}
                     onUpdateDeal={handleUpdateDeal}
                     onUpdateAction={handleUpdateAction}
                     voiceMode={voiceMode}
@@ -522,12 +522,12 @@ export default function Home() {
             />
           </TabsContent>
 
-          {/* Configuration Tab */}
-
           {/* Quotes Tab */}
           <TabsContent value="quotes" className="space-y-6">
             <QuotesList />
           </TabsContent>
+
+          {/* Configuration Tab */}
           <TabsContent value="config" className="space-y-6">
             <div className="space-y-6">
               {/* Configuration des métriques */}
