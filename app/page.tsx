@@ -402,7 +402,13 @@ export default function Home() {
             {showInsights && (
               <div className="grid gap-6 lg:grid-cols-2 animate-in slide-in-from-top duration-300">
                 {/* Colonne gauche : Insights IA */}
-                <AIInsights businessContext={businessData} onAddAction={handleAddAction} />
+                <AIInsights
+                  businessContext={businessData}
+                  onAddAction={handleAddAction}
+                  aiInsights={aiInsights}
+                  suggestedActions={suggestedActions}
+                  isLoading={isLoadingInsights}
+                />
               </div>
             )}
 
