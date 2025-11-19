@@ -6,6 +6,7 @@ export interface Conversation {
   messages: Message[]
   createdAt: Date
   updatedAt: Date
+  archived: boolean
 }
 
 const CONVERSATIONS_KEY = "agent-commercial-conversations"
@@ -36,6 +37,7 @@ export class ConversationManager {
           ...conv,
           createdAt: new Date(conv.createdAt),
           updatedAt: new Date(conv.updatedAt),
+          archived: conv.archived ?? false, // Default to false for old conversations
           messages: conv.messages.map((m: any) => ({
             ...m,
             timestamp: new Date(m.timestamp),
@@ -71,6 +73,7 @@ export class ConversationManager {
       ],
       createdAt: new Date(),
       updatedAt: new Date(),
+      archived: false,
     }
 
     const conversations = this.loadConversations()
@@ -122,6 +125,39 @@ export class ConversationManager {
       } else {
         localStorage.removeItem(ACTIVE_CONVERSATION_KEY)
       }
+    }
+  }
+
+  // Archiver une conversation
+  archiveConversation(id: string): void {
+    const conversations = this.loadConversations()
+    const index = conversations.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      conversations[index].archived = true
+      conversations[index].updatedAt = new Date()
+      this.saveConversations(conversations)
+
+      // Si c'était la conversation active, activer la première conversation non archivée
+      const activeId = this.getActiveConversationId()
+      if (activeId === id) {
+        const activeConv = conversations.find((c) => !c.archived)
+        if (activeConv) {
+          this.setActiveConversation(activeConv.id)
+        } else {
+          localStorage.removeItem(ACTIVE_CONVERSATION_KEY)
+        }
+      }
+    }
+  }
+
+  // Désarchiver une conversation
+  unarchiveConversation(id: string): void {
+    const conversations = this.loadConversations()
+    const index = conversations.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      conversations[index].archived = false
+      conversations[index].updatedAt = new Date()
+      this.saveConversations(conversations)
     }
   }
 
