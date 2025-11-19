@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { VoiceMode, VoiceState, VoiceSettings } from '@/types/voice'
+import { cleanTextForSpeech } from '@/lib/text-cleaner'
 
 export function useVoice(
   onTranscript: (text: string, isFinal: boolean) => void,
@@ -438,7 +439,10 @@ export function useVoice(
 
     setVoiceState('speaking')
 
-    const utterance = new SpeechSynthesisUtterance(text)
+    // Nettoyer le texte pour la synthèse vocale
+    const cleanedText = cleanTextForSpeech(text)
+
+    const utterance = new SpeechSynthesisUtterance(cleanedText)
     utterance.lang = settings.language || 'fr-FR'
     utterance.rate = settings.voiceSpeed || 1.0
     utterance.pitch = 1.0
