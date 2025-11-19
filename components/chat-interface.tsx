@@ -215,6 +215,13 @@ export function ChatInterface({
     // pour s'assurer que la réponse sera lue même si le mode change pendant le traitement
     const shouldSpeakResponse = voiceSettings.autoSpeak && voiceSettings.mode === 'automatic'
 
+    console.log('[ChatInterface] handleVoiceInput:', {
+      transcript,
+      autoSpeak: voiceSettings.autoSpeak,
+      mode: voiceSettings.mode,
+      shouldSpeakResponse
+    })
+
     // Détecter l'intention du message
     const intent = IntentDetector.detectIntent(transcript, !!pendingAction)
 
@@ -727,7 +734,14 @@ export function ChatInterface({
       // Lire la réponse vocalement si demandé (en mode vocal automatique)
       // shouldSpeak est défini au moment où l'utilisateur a parlé, pour garantir
       // que la réponse sera lue même si le mode vocal change pendant le traitement
+      console.log('[ChatInterface] Après génération réponse:', {
+        shouldSpeak,
+        finalResponse: finalResponse?.substring(0, 100) + (finalResponse && finalResponse.length > 100 ? '...' : ''),
+        finalResponseLength: finalResponse?.length
+      })
+
       if (shouldSpeak && finalResponse) {
+        console.log('[ChatInterface] Démarrage lecture vocale de la réponse')
         // Arrêter la reconnaissance pendant que l'assistant parle
         stopListening()
 
@@ -735,12 +749,16 @@ export function ChatInterface({
         await new Promise(resolve => setTimeout(resolve, 300))
 
         // Lire la réponse
+        console.log('[ChatInterface] Appel de speak() avec:', finalResponse.substring(0, 100))
         await speak(finalResponse)
+        console.log('[ChatInterface] speak() terminé')
 
         // Redémarrer la reconnaissance en mode wake word
         setTimeout(() => {
           startWakeWordListening()
         }, 500)
+      } else {
+        console.log('[ChatInterface] Lecture vocale ignorée car shouldSpeak=' + shouldSpeak + ', finalResponse=' + !!finalResponse)
       }
     } catch (error: any) {
       console.error("Chat error:", error)

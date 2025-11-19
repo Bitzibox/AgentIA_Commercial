@@ -2,7 +2,12 @@
 // Retire le formatage markdown et la ponctuation inutile
 
 export function cleanTextForSpeech(text: string): string {
-  if (!text) return ""
+  if (!text) {
+    console.log('[TextCleaner] Texte vide ou null reçu')
+    return ""
+  }
+
+  console.log('[TextCleaner] Texte original:', text.substring(0, 100) + (text.length > 100 ? '...' : ''))
 
   let cleaned = text
 
@@ -48,6 +53,9 @@ export function cleanTextForSpeech(text: string): string {
 
   // Trim
   cleaned = cleaned.trim()
+
+  console.log('[TextCleaner] Texte nettoyé:', cleaned.substring(0, 100) + (cleaned.length > 100 ? '...' : ''))
+  console.log('[TextCleaner] Longueur: original=' + text.length + ', nettoyé=' + cleaned.length)
 
   return cleaned
 }

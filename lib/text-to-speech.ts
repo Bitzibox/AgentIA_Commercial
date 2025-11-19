@@ -94,8 +94,11 @@ export class TextToSpeechService {
   // Parler (lire un texte)
   speak(text: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      console.log('[TTS] speak() appelé avec texte:', text.substring(0, 100) + (text.length > 100 ? '...' : ''))
+
       if (!this.synthesis) {
         const error = "La synthèse vocale n'est pas supportée"
+        console.error('[TTS] Erreur:', error)
         if (this.onErrorCallback) this.onErrorCallback(error)
         reject(new Error(error))
         return
@@ -106,6 +109,14 @@ export class TextToSpeechService {
 
       // Nettoyer le texte pour la synthèse vocale
       const cleanedText = cleanTextForSpeech(text)
+
+      console.log('[TTS] Texte après nettoyage:', cleanedText.substring(0, 100) + (cleanedText.length > 100 ? '...' : ''))
+
+      if (!cleanedText || cleanedText.trim().length === 0) {
+        console.warn('[TTS] Texte vide après nettoyage, annulation')
+        resolve()
+        return
+      }
 
       // Sauvegarder le texte et réinitialiser l'état d'interruption
       this.currentText = cleanedText
