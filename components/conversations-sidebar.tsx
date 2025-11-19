@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { PlusCircle, MessageSquare, Trash2, X, Menu } from "lucide-react"
+import { PlusCircle, MessageSquare, Trash2, X, Menu, Archive, ArchiveRestore } from "lucide-react"
 import { conversationManager, Conversation } from "@/lib/conversation-manager"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +21,7 @@ export function ConversationsSidebar({
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [isOpen, setIsOpen] = useState(true)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadConversations()
@@ -48,6 +49,35 @@ export function ConversationsSidebar({
       }
     }
   }
+
+  const handleArchive = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    conversationManager.archiveConversation(id)
+    loadConversations()
+
+    // Si c'était la conversation active, charger une autre
+    if (id === activeConversationId) {
+      const activeConversations = conversationManager.loadConversations().filter(c => !c.archived)
+      if (activeConversations.length > 0) {
+        onConversationChange(activeConversations[0].id)
+      } else {
+        onNewConversation()
+      }
+    }
+  }
+
+  const handleUnarchive = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    conversationManager.unarchiveConversation(id)
+    loadConversations()
+  }
+
+  // Filtrer les conversations selon l'état d'affichage
+  const displayedConversations = showArchived
+    ? conversations.filter(c => c.archived)
+    : conversations.filter(c => !c.archived)
+
+  const archivedCount = conversations.filter(c => c.archived).length
 
   const formatDate = (date: Date) => {
     const now = new Date()
@@ -85,7 +115,7 @@ export function ConversationsSidebar({
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Conversations
+              {showArchived ? "Archives" : "Conversations"}
             </h2>
             <Button
               variant="ghost"
@@ -98,23 +128,42 @@ export function ConversationsSidebar({
           </div>
           <Button
             onClick={onNewConversation}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 mb-2"
             size="sm"
           >
             <PlusCircle className="h-4 w-4 mr-2" />
             Nouvelle conversation
           </Button>
+          {/* Toggle Archives */}
+          <Button
+            onClick={() => setShowArchived(!showArchived)}
+            variant="outline"
+            className="w-full"
+            size="sm"
+          >
+            {showArchived ? (
+              <>
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Conversations actives
+              </>
+            ) : (
+              <>
+                <Archive className="h-4 w-4 mr-2" />
+                Archives ({archivedCount})
+              </>
+            )}
+          </Button>
         </div>
 
         {/* List of conversations */}
         <ScrollArea className="flex-1 p-2">
-          {conversations.length === 0 ? (
+          {displayedConversations.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Aucune conversation
+              {showArchived ? "Aucune conversation archivée" : "Aucune conversation"}
             </div>
           ) : (
             <div className="space-y-1">
-              {conversations.map((conversation) => (
+              {displayedConversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => {
@@ -137,14 +186,38 @@ export function ConversationsSidebar({
                       {formatDate(conversation.updatedAt)}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={(e) => handleDelete(e, conversation.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    {conversation.archived ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => handleUnarchive(e, conversation.id)}
+                        title="Désarchiver"
+                      >
+                        <ArchiveRestore className="h-3 w-3" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => handleArchive(e, conversation.id)}
+                        title="Archiver"
+                      >
+                        <Archive className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={(e) => handleDelete(e, conversation.id)}
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
