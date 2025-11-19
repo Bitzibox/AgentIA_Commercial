@@ -210,6 +210,78 @@ export class EntityExtractor {
   }
 
   /**
+   * Générer un message de confirmation pour une mise à jour de deal
+   */
+  static generateDealUpdateConfirmation(deal: Partial<Deal>, updates: Record<string, any>): string {
+    const typedDeal = deal as any
+    let message = `Modifier l'opportunité ${typedDeal.client || 'cette opportunité'}: `
+    const changes: string[] = []
+
+    if (updates.amount !== undefined) {
+      changes.push(`montant → ${this.formatCurrency(updates.amount)}`)
+    }
+
+    if (updates.status !== undefined) {
+      const statusLabels: Record<string, string> = {
+        prospect: 'prospect',
+        proposal: 'proposition',
+        negotiation: 'négociation',
+        won: 'gagnée',
+        lost: 'perdue',
+      }
+      changes.push(`statut → ${statusLabels[updates.status] || updates.status}`)
+    }
+
+    if (updates.probability !== undefined) {
+      changes.push(`probabilité → ${updates.probability}%`)
+    }
+
+    if (updates.expectedCloseDate !== undefined) {
+      changes.push(`date de clôture → ${this.formatDate(updates.expectedCloseDate)}`)
+    }
+
+    return message + changes.join(', ')
+  }
+
+  /**
+   * Générer un message de confirmation pour une mise à jour d'action
+   */
+  static generateActionUpdateConfirmation(action: Partial<ActionItem>, updates: Record<string, any>): string {
+    let message = `Modifier l'action "${action.title || 'cette action'}": `
+    const changes: string[] = []
+
+    if (updates.dueDate !== undefined) {
+      const date = new Date(updates.dueDate)
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      if (date.toDateString() === today.toDateString()) {
+        changes.push("date → aujourd'hui")
+      } else if (date.toDateString() === tomorrow.toDateString()) {
+        changes.push('date → demain')
+      } else {
+        changes.push(`date → ${this.formatDate(updates.dueDate)}`)
+      }
+    }
+
+    if (updates.time !== undefined) {
+      changes.push(`heure → ${updates.time}`)
+    }
+
+    if (updates.priority !== undefined) {
+      const priorityLabels: Record<string, string> = {
+        high: 'haute',
+        medium: 'moyenne',
+        low: 'basse',
+      }
+      changes.push(`priorité → ${priorityLabels[updates.priority] || updates.priority}`)
+    }
+
+    return message + changes.join(', ')
+  }
+
+  /**
    * Formater un montant en devise
    */
   private static formatCurrency(amount: number): string {

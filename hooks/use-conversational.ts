@@ -4,11 +4,16 @@ import { useState, useCallback } from 'react'
 import { ConversationalState, PendingAction } from '@/types/voice'
 import { IntentDetector } from '@/lib/intent-detector'
 import { EntityExtractor } from '@/lib/entity-extractor'
+import { ItemMatcher } from '@/lib/item-matcher'
 import { Deal, ActionItem } from '@/types'
 
 export function useConversational(
   onDealCreated: (deal: Deal) => void,
-  onActionCreated: (action: ActionItem) => void
+  onActionCreated: (action: ActionItem) => void,
+  onDealUpdated?: (id: string, updates: Partial<Deal>) => void,
+  onActionUpdated?: (id: string, updates: Partial<ActionItem>) => void,
+  existingDeals?: Deal[],
+  existingActions?: ActionItem[]
 ) {
   const [state, setState] = useState<ConversationalState>({
     isActive: false,
@@ -130,6 +135,102 @@ export function useConversational(
           pendingAction: newPending,
           response: `${confirmation}. Je la crée ?`,
         }
+      } else if (intent.intent === 'update_deal') {
+        // Trouver l'opportunité à modifier
+        if (!existingDeals || existingDeals.length === 0) {
+          return {
+            shouldCreate: false,
+            pendingAction: null,
+            response: "Je n'ai trouvé aucune opportunité à modifier.",
+          }
+        }
+
+        const targetIdentifier = intent.targetIdentifier
+        if (!targetIdentifier) {
+          return {
+            shouldCreate: false,
+            pendingAction: null,
+            response: "Je n'ai pas compris quelle opportunité vous souhaitez modifier. Pouvez-vous préciser le nom du client ?",
+          }
+        }
+
+        const matchResult = ItemMatcher.findDeal(existingDeals, targetIdentifier)
+        if (!matchResult) {
+          return {
+            shouldCreate: false,
+            pendingAction: null,
+            response: `Je n'ai pas trouvé d'opportunité correspondant à "${targetIdentifier}". Pouvez-vous préciser ?`,
+          }
+        }
+
+        const targetDeal = matchResult.item
+        const updates = intent.entities
+        const confirmation = EntityExtractor.generateDealUpdateConfirmation(targetDeal, updates)
+
+        const newPending: PendingAction = {
+          type: 'update_deal',
+          data: updates,
+          targetItemId: targetDeal.id,
+          confirmationMessage: confirmation,
+          confidence: matchResult.confidence,
+          awaitingConfirmation: true,
+        }
+
+        setPendingAction(newPending)
+
+        return {
+          shouldCreate: false,
+          pendingAction: newPending,
+          response: `${confirmation}. Je valide cette modification ?`,
+        }
+      } else if (intent.intent === 'update_action') {
+        // Trouver l'action à modifier
+        if (!existingActions || existingActions.length === 0) {
+          return {
+            shouldCreate: false,
+            pendingAction: null,
+            response: "Je n'ai trouvé aucune action à modifier.",
+          }
+        }
+
+        const targetIdentifier = intent.targetIdentifier
+        if (!targetIdentifier) {
+          return {
+            shouldCreate: false,
+            pendingAction: null,
+            response: "Je n'ai pas compris quelle action vous souhaitez modifier. Pouvez-vous préciser ?",
+          }
+        }
+
+        const matchResult = ItemMatcher.findAction(existingActions, targetIdentifier)
+        if (!matchResult) {
+          return {
+            shouldCreate: false,
+            pendingAction: null,
+            response: `Je n'ai pas trouvé d'action correspondant à "${targetIdentifier}". Pouvez-vous préciser ?`,
+          }
+        }
+
+        const targetAction = matchResult.item
+        const updates = intent.entities
+        const confirmation = EntityExtractor.generateActionUpdateConfirmation(targetAction, updates)
+
+        const newPending: PendingAction = {
+          type: 'update_action',
+          data: updates,
+          targetItemId: targetAction.id,
+          confirmationMessage: confirmation,
+          confidence: matchResult.confidence,
+          awaitingConfirmation: true,
+        }
+
+        setPendingAction(newPending)
+
+        return {
+          shouldCreate: false,
+          pendingAction: newPending,
+          response: `${confirmation}. Je valide cette modification ?`,
+        }
       }
 
       // Pas d'intention spéciale détectée
@@ -139,7 +240,7 @@ export function useConversational(
         response: null, // L'IA répondra normalement
       }
     },
-    [pendingAction]
+    [pendingAction, existingDeals, existingActions, onDealUpdated, onActionUpdated]
   )
 
   // Créer l'item en attente
@@ -176,11 +277,23 @@ export function useConversational(
           actions: [...prev.itemsCreated.actions, action.id],
         },
       }))
+    } else if (pendingAction.type === 'update_deal') {
+      if (!pendingAction.targetItemId || !onDealUpdated) return false
+
+      onDealUpdated(pendingAction.targetItemId, pendingAction.data)
+
+      // Pas besoin de mettre à jour itemsCreated pour les modifications
+    } else if (pendingAction.type === 'update_action') {
+      if (!pendingAction.targetItemId || !onActionUpdated) return false
+
+      onActionUpdated(pendingAction.targetItemId, pendingAction.data)
+
+      // Pas besoin de mettre à jour itemsCreated pour les modifications
     }
 
     setPendingAction(null)
     return true
-  }, [pendingAction, onDealCreated, onActionCreated])
+  }, [pendingAction, onDealCreated, onActionCreated, onDealUpdated, onActionUpdated])
 
   // Réinitialiser
   const reset = useCallback(() => {
