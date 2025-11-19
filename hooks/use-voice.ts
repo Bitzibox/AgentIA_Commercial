@@ -16,6 +16,40 @@ export function useVoice(
   const synthesisRef = useRef<SpeechSynthesis | null>(null)
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isRecognitionActiveRef = useRef<boolean>(false) // Track if recognition is currently active
+
+  // Helper function to safely start recognition
+  const safeStartRecognition = useCallback(() => {
+    if (!recognitionRef.current) return false
+
+    // If already active, stop first and wait before restarting
+    if (isRecognitionActiveRef.current) {
+      console.log('[Voice] Recognition already active, stopping first...')
+      try {
+        recognitionRef.current.stop()
+      } catch (e) {
+        console.log('[Voice] Could not stop:', e)
+      }
+
+      // Wait for stop to complete before starting
+      setTimeout(() => {
+        isRecognitionActiveRef.current = false
+        safeStartRecognition()
+      }, 300)
+      return false
+    }
+
+    try {
+      console.log('[Voice] Starting recognition...')
+      recognitionRef.current.start()
+      isRecognitionActiveRef.current = true
+      return true
+    } catch (e) {
+      console.error('[Voice] Failed to start recognition:', e)
+      isRecognitionActiveRef.current = false
+      return false
+    }
+  }, [])
 
   // Initialisation des APIs Web Speech
   useEffect(() => {
@@ -121,19 +155,21 @@ export function useVoice(
       }
     }
 
+    recognitionRef.current.onstart = () => {
+      isRecognitionActiveRef.current = true
+      console.log('[Voice] Recognition started')
+    }
+
     recognitionRef.current.onerror = (event: any) => {
       console.error('[Voice] Recognition error:', event.error)
+      isRecognitionActiveRef.current = false
 
       // Ne pas traiter comme erreur fatale
       if (event.error === 'no-speech' || event.error === 'aborted') {
         // Redémarrer automatiquement
         if (settings.mode === 'automatic') {
           restartTimerRef.current = setTimeout(() => {
-            try {
-              recognitionRef.current?.start()
-            } catch (e) {
-              console.log('Could not restart recognition')
-            }
+            safeStartRecognition()
           }, 500)
         }
       } else if (event.error === 'not-allowed') {
@@ -145,27 +181,19 @@ export function useVoice(
 
     recognitionRef.current.onend = () => {
       console.log('[Voice] Recognition ended')
+      isRecognitionActiveRef.current = false
 
       // Redémarrer automatiquement en mode wake word
       if (settings.mode === 'automatic' && voiceState === 'listening-wake-word') {
         restartTimerRef.current = setTimeout(() => {
-          try {
-            recognitionRef.current?.start()
-          } catch (e) {
-            console.log('Could not restart recognition:', e)
-          }
+          safeStartRecognition()
         }, 500)
       }
     }
 
-    try {
-      recognitionRef.current.start()
-    } catch (e) {
-      console.error('[Voice] Failed to start recognition:', e)
-      setError("Impossible de démarrer la reconnaissance vocale")
-    }
+    safeStartRecognition()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.mode])
+  }, [settings.mode, safeStartRecognition])
 
   // Wake word détecté
   const onWakeWordDetected = useCallback(() => {
@@ -174,6 +202,7 @@ export function useVoice(
     // Arrêter la reconnaissance actuelle
     try {
       recognitionRef.current?.stop()
+      isRecognitionActiveRef.current = false
     } catch (e) {
       console.log('Could not stop recognition')
     }
@@ -235,8 +264,14 @@ export function useVoice(
       }
     }
 
+    recognitionRef.current.onstart = () => {
+      isRecognitionActiveRef.current = true
+      console.log('[Voice] Conversation recognition started')
+    }
+
     recognitionRef.current.onerror = (event: any) => {
       console.error('[Voice] Conversation error:', event.error)
+      isRecognitionActiveRef.current = false
       if (event.error === 'not-allowed') {
         setError("Accès au microphone refusé")
         stopListening()
@@ -245,16 +280,13 @@ export function useVoice(
 
     recognitionRef.current.onend = () => {
       console.log('[Voice] Conversation ended')
+      isRecognitionActiveRef.current = false
       // Ne pas redémarrer automatiquement en mode conversation
       // L'utilisateur doit réactiver avec le wake word
     }
 
-    try {
-      recognitionRef.current.start()
-    } catch (e) {
-      console.error('[Voice] Failed to start conversation:', e)
-    }
-  }, [onTranscript])
+    safeStartRecognition()
+  }, [onTranscript, safeStartRecognition, stopListening])
 
   // Mode manuel (push to talk)
   const startManualListening = useCallback(() => {
@@ -288,7 +320,13 @@ export function useVoice(
       }
     }
 
+    recognitionRef.current.onstart = () => {
+      isRecognitionActiveRef.current = true
+      console.log('[Voice] Manual recognition started')
+    }
+
     recognitionRef.current.onend = () => {
+      isRecognitionActiveRef.current = false
       if (finalTranscript.trim()) {
         onTranscript(finalTranscript.trim(), true)
       }
@@ -299,6 +337,7 @@ export function useVoice(
 
     recognitionRef.current.onerror = (event: any) => {
       console.error('[Voice] Manual mode error:', event.error)
+      isRecognitionActiveRef.current = false
       if (event.error === 'not-allowed') {
         setError("Accès au microphone refusé")
       }
@@ -306,12 +345,8 @@ export function useVoice(
       setIsListening(false)
     }
 
-    try {
-      recognitionRef.current.start()
-    } catch (e) {
-      console.error('[Voice] Failed to start manual listening:', e)
-    }
-  }, [onTranscript])
+    safeStartRecognition()
+  }, [onTranscript, safeStartRecognition])
 
   // Arrêter l'écoute
   const stopListening = useCallback(() => {
@@ -320,6 +355,7 @@ export function useVoice(
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop()
+        isRecognitionActiveRef.current = false // Mark as inactive
       } catch (e) {
         console.log('Recognition already stopped')
       }
