@@ -10,10 +10,12 @@ import { ApiKeyDialog } from "@/components/api-key-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { dataManager } from "@/lib/data-manager"
 import { conversationManager } from "@/lib/conversation-manager"
 import { BusinessContext, Deal, BusinessMetrics, Lead, Activity, ActionItem } from "@/types"
-import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings, Eye, EyeOff } from "lucide-react"
+import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings, Eye, EyeOff, Radio } from "lucide-react"
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
@@ -23,6 +25,7 @@ import { AIInsightsGeminiEngine } from "@/lib/ai-insights-gemini"
 import { NotificationsPanel } from "@/components/notifications-panel"
 import { QuickAccessCards } from "@/components/quick-access-cards"
 import { insightsCache } from "@/lib/insights-cache"
+import { VoiceMode } from "@/types/voice"
 
 export default function Home() {
   const [businessData, setBusinessData] = useState<BusinessContext | null>(null)
@@ -35,6 +38,7 @@ export default function Home() {
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([])
   const [useGeminiForInsights, setUseGeminiForInsights] = useState(true)
   const [isLoadingInsights, setIsLoadingInsights] = useState(false)
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('disabled')
 
   useEffect(() => {
     setIsClient(true)
@@ -367,35 +371,52 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Boutons pour gérer les insights IA */}
-            <div className="flex justify-end gap-2">
-              <Button
-                onClick={handleRefreshInsights}
-                variant="outline"
-                size="sm"
-                className="gap-2 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
-                disabled={isLoadingInsights}
-                title="Actualiser les conseils IA"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoadingInsights ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Actualiser les conseils IA</span>
-              </Button>
-              <Button
-                onClick={() => setShowInsights(!showInsights)}
-                variant="outline"
-                size="sm"
-                className="gap-2 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
-                title={showInsights ? "Masquer les insights IA" : "Afficher les insights IA"}
-              >
-                {showInsights ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    <Sparkles className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
+            {/* Boutons pour gérer les insights IA et mode vocal */}
+            <div className="flex justify-between items-center gap-4">
+              {/* Toggle mode vocal automatique */}
+              <div className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                <Radio className={`h-4 w-4 ${voiceMode === 'automatic' ? 'text-green-500 animate-pulse' : 'text-muted-foreground'}`} />
+                <Label htmlFor="voice-mode-toggle" className="text-sm font-medium cursor-pointer">
+                  Mode vocal auto
+                </Label>
+                <Switch
+                  id="voice-mode-toggle"
+                  checked={voiceMode === 'automatic'}
+                  onCheckedChange={(checked) => setVoiceMode(checked ? 'automatic' : 'disabled')}
+                  className="data-[state=checked]:bg-green-500"
+                />
+              </div>
+
+              {/* Boutons insights */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleRefreshInsights}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                  disabled={isLoadingInsights}
+                  title="Actualiser les conseils IA"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoadingInsights ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Actualiser les conseils IA</span>
+                </Button>
+                <Button
+                  onClick={() => setShowInsights(!showInsights)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                  title={showInsights ? "Masquer les insights IA" : "Afficher les insights IA"}
+                >
+                  {showInsights ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      <Sparkles className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {/* IA Insights en 2 colonnes (conditionnel) */}
@@ -446,6 +467,8 @@ export default function Home() {
                     onAddAction={handleAddAction}
                     onUpdateDeal={handleUpdateDeal}
                     onUpdateAction={handleUpdateAction}
+                    voiceMode={voiceMode}
+                    onVoiceModeChange={setVoiceMode}
                     disableAutoScroll={true}
                     key={`chat-${activeConversationId}`}
                   />
