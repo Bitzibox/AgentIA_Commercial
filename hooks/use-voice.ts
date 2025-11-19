@@ -18,6 +18,7 @@ export function useVoice(
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isRecognitionActiveRef = useRef<boolean>(false) // Track if recognition is currently active
   const isPendingRestartRef = useRef<boolean>(false) // Prevent multiple simultaneous restarts
+  const wakeWordDetectedRef = useRef<boolean>(false) // Prevent multiple wake word detections
 
   // Initialisation des APIs Web Speech
   useEffect(() => {
@@ -88,10 +89,14 @@ export function useVoice(
     setVoiceState('listening-wake-word')
     setIsListening(true)
     setError(null)
+    wakeWordDetectedRef.current = false // Reset flag
 
     let wakeWordBuffer = ''
 
     recognitionRef.current.onresult = (event: any) => {
+      // Si déjà détecté, ignorer les résultats suivants
+      if (wakeWordDetectedRef.current) return
+
       // Récupérer tous les résultats
       let transcript = ''
       for (let i = 0; i < event.results.length; i++) {
@@ -118,9 +123,19 @@ export function useVoice(
         transcript.includes(word)
       )
 
-      if (detected) {
+      if (detected && !wakeWordDetectedRef.current) {
         console.log('[Voice] Wake word detected!')
+        wakeWordDetectedRef.current = true // Marquer comme détecté
         wakeWordBuffer = '' // Reset le buffer
+
+        // Arrêter immédiatement la reconnaissance
+        try {
+          recognitionRef.current?.stop()
+          isRecognitionActiveRef.current = false
+        } catch (e) {
+          console.log('Could not stop recognition after wake word')
+        }
+
         onWakeWordDetected()
       }
     }
@@ -207,8 +222,10 @@ export function useVoice(
 
     // Réponse vocale
     speak("Oui, je vous écoute !", () => {
-      // Démarrer l'écoute de la conversation
-      startConversationListening()
+      // Attendre 500ms après la fin de la synthèse pour éviter de capter l'écho
+      setTimeout(() => {
+        startConversationListening()
+      }, 500)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playActivationSound])
@@ -221,16 +238,18 @@ export function useVoice(
     setVoiceState('active')
 
     let finalTranscript = ''
+    let lastResultIndex = 0 // Track processed results
 
     recognitionRef.current.onresult = (event: any) => {
       let interim = ''
-      finalTranscript = ''
 
-      for (let i = 0; i < event.results.length; i++) {
+      // Process only NEW final results
+      for (let i = lastResultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript
 
         if (event.results[i].isFinal) {
           finalTranscript += transcript + ' '
+          lastResultIndex = i + 1
         } else {
           interim += transcript
         }
@@ -247,14 +266,17 @@ export function useVoice(
       // Détecter une pause dans la parole
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current)
+        silenceTimerRef.current = null
       }
 
       if (finalTranscript.trim()) {
         silenceTimerRef.current = setTimeout(() => {
-          console.log('[Voice] Silence detected, sending final transcript:', finalTranscript.trim())
-          onTranscript(finalTranscript.trim(), true)
+          const textToSend = finalTranscript.trim()
+          console.log('[Voice] Silence detected, sending final transcript:', textToSend)
+          onTranscript(textToSend, true)
           setInterimTranscript('')
           finalTranscript = ''
+          lastResultIndex = 0
         }, 1500) // 1.5 secondes de silence
       }
     }

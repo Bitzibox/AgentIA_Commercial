@@ -769,8 +769,13 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     setVoiceSettings((prev) => ({ ...prev, mode }))
 
     if (mode === 'automatic') {
-      startConversation()
-      startWakeWordListening() // Démarrer l'écoute du wake word, pas la conversation
+      // Arrêter d'abord toute reconnaissance en cours
+      stopListening()
+      // Attendre que le stop soit complété avant de démarrer
+      setTimeout(() => {
+        startConversation()
+        startWakeWordListening() // Démarrer l'écoute du wake word, pas la conversation
+      }, 300)
     } else if (mode === 'manual') {
       // Manuel : pas de wake word, on attend que l'utilisateur clique
       stopListening()
