@@ -390,11 +390,8 @@ export function useVoice(
         console.log('[Voice] Mode conversation actif, redémarrage de l\'écoute...')
         setTimeout(() => {
           if (isInConversationModeRef.current && !isRecognitionActiveRef.current) {
-            try {
-              recognitionRef.current?.start()
-            } catch (e) {
-              console.error('[Voice] Failed to restart conversation:', e)
-            }
+            // Rappeler startConversationListening pour redéfinir tous les handlers
+            startConversationListening()
           }
         }, 500)
       }
