@@ -5,11 +5,12 @@ import { ConversationalState, PendingAction } from '@/types/voice'
 import { IntentDetector } from '@/lib/intent-detector'
 import { EntityExtractor } from '@/lib/entity-extractor'
 import { ItemMatcher } from '@/lib/item-matcher'
-import { Deal, ActionItem } from '@/types'
+import { Deal, ActionItem, Quote } from '@/types'
 
 export function useConversational(
   onDealCreated: (deal: Deal) => void,
   onActionCreated: (action: ActionItem) => void,
+  onQuoteCreated: (quote: Quote) => void,
   onDealUpdated?: (id: string, updates: Partial<Deal>) => void,
   onActionUpdated?: (id: string, updates: Partial<ActionItem>) => void,
   existingDeals?: Deal[],
@@ -83,13 +84,17 @@ export function useConversational(
           } else if (updated.type === 'create_action') {
             updated.data = EntityExtractor.updateActionWithModifications(updated.data, intent.entities)
             updated.confirmationMessage = EntityExtractor.generateActionConfirmation(updated.data)
+          } else if (updated.type === 'create_quote') {
+            updated.data = EntityExtractor.updateQuoteWithModifications(updated.data, intent.entities)
+            updated.confirmationMessage = EntityExtractor.generateQuoteConfirmation(updated.data)
           }
 
           setPendingAction(updated)
+          const itemType = updated.type === 'create_deal' ? 'opportunité' : updated.type === 'create_quote' ? 'devis' : 'action'
           return {
             shouldCreate: false,
             pendingAction: updated,
-            response: `D'accord, ${updated.confirmationMessage}. Je crée cette ${updated.type === 'create_deal' ? 'opportunité' : 'action'} ?`,
+            response: `D'accord, ${updated.confirmationMessage}. Je crée ce ${itemType} ?`,
           }
         }
       }
@@ -134,6 +139,25 @@ export function useConversational(
           shouldCreate: false,
           pendingAction: newPending,
           response: `${confirmation}. Je la crée ?`,
+        }
+      } else if (intent.intent === 'create_quote') {
+        const quote = EntityExtractor.createQuoteFromEntities(intent.entities)
+        const confirmation = EntityExtractor.generateQuoteConfirmation(quote)
+
+        const newPending: PendingAction = {
+          type: 'create_quote',
+          data: quote,
+          confirmationMessage: confirmation,
+          confidence: intent.confidence,
+          awaitingConfirmation: true,
+        }
+
+        setPendingAction(newPending)
+
+        return {
+          shouldCreate: false,
+          pendingAction: newPending,
+          response: `${confirmation}. Je crée ce devis ?`,
         }
       } else if (intent.intent === 'update_deal') {
         // Trouver l'opportunité à modifier
@@ -277,6 +301,20 @@ export function useConversational(
           actions: [...prev.itemsCreated.actions, action.id],
         },
       }))
+    } else if (pendingAction.type === 'create_quote') {
+      const quote: Quote = {
+        id: Date.now().toString(),
+        quoteNumber: '', // Sera généré par le dataManager
+        ...pendingAction.data,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 jours
+        opened: false,
+        openCount: 0,
+      }
+
+      onQuoteCreated(quote)
+
+      // Pas besoin de mettre à jour itemsCreated pour les devis (pas utilisé actuellement)
     } else if (pendingAction.type === 'update_deal') {
       if (!pendingAction.targetItemId || !onDealUpdated) return false
 
@@ -293,7 +331,7 @@ export function useConversational(
 
     setPendingAction(null)
     return true
-  }, [pendingAction, onDealCreated, onActionCreated, onDealUpdated, onActionUpdated])
+  }, [pendingAction, onDealCreated, onActionCreated, onQuoteCreated, onDealUpdated, onActionUpdated])
 
   // Réinitialiser
   const reset = useCallback(() => {

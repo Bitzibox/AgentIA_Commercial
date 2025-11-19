@@ -6,6 +6,7 @@ import { ConversationsSidebar } from "@/components/conversations-sidebar"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { DealsList } from "@/components/deals-list"
 import { ActionItems } from "@/components/action-items"
+import { QuotesList } from "@/components/quotes-list"
 import { ApiKeyDialog } from "@/components/api-key-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -14,8 +15,8 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { dataManager } from "@/lib/data-manager"
 import { conversationManager } from "@/lib/conversation-manager"
-import { BusinessContext, Deal, BusinessMetrics, Lead, Activity, ActionItem } from "@/types"
-import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings, Eye, EyeOff, Radio } from "lucide-react"
+import { BusinessContext, Deal, BusinessMetrics, Lead, Activity, ActionItem, Quote } from "@/types"
+import { BarChart3, MessageSquare, Target, CheckSquare, RefreshCw, Download, Upload, Sparkles, Settings, Eye, EyeOff, Radio, FileText } from "lucide-react"
 import { MetricsConfig } from "@/components/metrics-config"
 import { LeadsManager } from "@/components/leads-manager"
 import { ActivitiesManager } from "@/components/activities-manager"
@@ -158,6 +159,21 @@ export default function Home() {
   const handleDeleteAction = (id: string) => {
     dataManager.deleteAction(id)
     loadData()
+
+  const handleAddQuote = (quote: Omit<Quote, "id" | "quoteNumber" | "createdAt" | "expiresAt" | "opened" | "openCount">) => {
+    dataManager.addQuote(quote)
+    loadData()
+  }
+
+  const handleUpdateQuote = (id: string, updates: Partial<Quote>) => {
+    dataManager.updateQuote(id, updates)
+    loadData()
+  }
+
+  const handleDeleteQuote = (id: string) => {
+    dataManager.deleteQuote(id)
+    loadData()
+  }
   }
 
   const handleUpdateMetrics = (metrics: BusinessMetrics) => {
@@ -331,7 +347,7 @@ export default function Home() {
 
         {/* Main Content avec tabs améliorés */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-1.5 rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/50">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-1.5 rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/50">
             <TabsTrigger
               value="dashboard"
               className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white transition-all duration-200"
@@ -361,6 +377,13 @@ export default function Home() {
               <span className="hidden sm:inline">Actions</span>
             </TabsTrigger>
             <TabsTrigger
+            <TabsTrigger
+              value="quotes"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-teal-600 data-[state=active]:text-white transition-all duration-200"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Devis</span>
+            </TabsTrigger>
               value="config"
               className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white transition-all duration-200"
             >
@@ -464,6 +487,7 @@ export default function Home() {
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
                     onAddDeal={handleAddDeal}
+                    onAddQuote={handleAddQuote}
                     onAddAction={handleAddAction}
                     onUpdateDeal={handleUpdateDeal}
                     onUpdateAction={handleUpdateAction}
@@ -499,6 +523,11 @@ export default function Home() {
           </TabsContent>
 
           {/* Configuration Tab */}
+
+          {/* Quotes Tab */}
+          <TabsContent value="quotes" className="space-y-6">
+            <QuotesList />
+          </TabsContent>
           <TabsContent value="config" className="space-y-6">
             <div className="space-y-6">
               {/* Configuration des métriques */}

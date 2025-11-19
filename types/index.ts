@@ -77,10 +77,72 @@ export interface ActionItem {
   status?: "todo" | "done" | "cancelled"
 }
 
+export interface QuoteItem {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  total: number
+  taxRate?: number // Taux de TVA en pourcentage (ex: 20 pour 20%)
+}
+
+export interface Quote {
+  id: string
+  quoteNumber: string // Numéro du devis (ex: "DEVIS-2024-001")
+  company: string // Nom du client
+  contact: string
+  email: string
+  phone?: string
+  address?: string
+
+  // Lignes du devis
+  items: QuoteItem[]
+
+  // Montants
+  subtotal: number // Sous-total HT
+  taxAmount: number // Montant total TVA
+  totalAmount: number // Montant total TTC
+
+  // Conditions
+  validityDays: number // Durée de validité (ex: 30 jours)
+  paymentTerms: string // Conditions de paiement (ex: "30 jours nets")
+  notes?: string // Notes ou conditions particulières
+
+  // Dates
+  createdAt: Date
+  expiresAt: Date
+  sentAt?: Date
+  acceptedAt?: Date
+
+  // Statut
+  status: "Brouillon" | "Envoyé" | "Vu" | "Accepté" | "Refusé" | "Expiré"
+
+  // Tracking
+  opened: boolean
+  openedAt?: Date
+  openCount: number // Nombre de fois que le devis a été ouvert
+
+  // Relation avec opportunité
+  relatedDeal?: {
+    id: string
+    name: string
+  }
+
+  // Métadonnées d'envoi
+  sentBy?: "email" | "whatsapp" | "manual"
+  trackingId?: string // ID unique pour le tracking d'ouverture
+
+  // Configuration d'apparence
+  template?: "default" | "modern" | "minimal" // Template PDF
+  color?: string // Couleur principale du PDF
+  logo?: string // URL ou base64 du logo
+}
+
 export interface BusinessContext {
   metrics: BusinessMetrics
   topDeals: Deal[]
   recentActivities: Activity[]
   actionItems: ActionItem[]
   hotLeads: Lead[]
+  quotes?: Quote[] // Liste des devis
 }
