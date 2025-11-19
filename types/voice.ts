@@ -26,17 +26,19 @@ export interface ConversationalState {
 }
 
 export interface PendingAction {
-  type: 'create_deal' | 'create_action'
+  type: 'create_deal' | 'create_action' | 'update_deal' | 'update_action'
   data: any
   confirmationMessage: string
   confidence: number
   awaitingConfirmation: boolean
+  targetItemId?: string // ID de l'item à modifier (pour update)
 }
 
 export interface IntentDetection {
-  intent: 'create_deal' | 'create_action' | 'query' | 'modify' | 'confirm' | 'cancel' | 'unknown'
+  intent: 'create_deal' | 'create_action' | 'update_deal' | 'update_action' | 'query' | 'modify' | 'confirm' | 'cancel' | 'unknown'
   confidence: number
   entities: Record<string, any>
+  targetIdentifier?: string // Identifiant de l'item ciblé (nom client, titre action, etc.)
 }
 
 export interface AIResponse {

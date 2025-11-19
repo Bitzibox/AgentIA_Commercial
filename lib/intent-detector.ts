@@ -51,6 +51,24 @@ export class IntentDetector {
     /^pas\s+/i,
   ]
 
+  // Patterns pour détecter la modification d'une opportunité existante
+  private static updateDealPatterns = [
+    /modifier?\s+(l'|la|le)?\s*opportunit[ée]\s+(de|pour|avec|chez)/i,
+    /modifier?\s+(le\s+)?(montant|statut|probabilit[ée])\s+(de|pour)\s+(l'opportunit[ée]|le\s+deal)/i,
+    /changer?\s+(le\s+)?(montant|statut|probabilit[ée])\s+(de|d'|pour)\s*([A-Z][a-zA-Z\s&-]+)/i,
+    /mettre à jour\s+(l'|la)?\s*opportunit[ée]\s+(de|pour|avec|chez)/i,
+    /passer\s+(l'opportunit[ée]|le\s+deal)\s+(de|pour|chez)\s+([A-Z][a-zA-Z\s&-]+)\s+(en|à)/i,
+  ]
+
+  // Patterns pour détecter la modification d'une action existante
+  private static updateActionPatterns = [
+    /modifier?\s+(l'|la)?\s*action\s+(de|pour|avec)/i,
+    /changer?\s+(la\s+)?(date|heure|priorit[ée])\s+(de|d'|pour)\s+(l'action|la\s+t[âa]che)/i,
+    /reporter\s+(l'|la)?\s*action\s+(de|pour|avec)/i,
+    /d[ée]caler\s+(l'|la|le)?\s*(rendez-vous|r[ée]union|appel)\s+(avec|de|pour)/i,
+    /reprogrammer\s+(l'|le|la)?\s*(action|rendez-vous|r[ée]union|appel)\s+(avec|de)/i,
+  ]
+
   /**
    * Détecter l'intention principale du message
    */
@@ -81,6 +99,28 @@ export class IntentDetector {
           confidence: 0.85,
           entities: this.extractModifications(trimmedMessage)
         }
+      }
+    }
+
+    // Détecter modification d'opportunité (priorité haute pour éviter confusion avec création)
+    if (this.matchesPatterns(message, this.updateDealPatterns)) {
+      const result = this.extractUpdateDealInfo(message)
+      return {
+        intent: 'update_deal',
+        confidence: 0.9,
+        entities: result.entities,
+        targetIdentifier: result.targetIdentifier
+      }
+    }
+
+    // Détecter modification d'action
+    if (this.matchesPatterns(message, this.updateActionPatterns)) {
+      const result = this.extractUpdateActionInfo(message)
+      return {
+        intent: 'update_action',
+        confidence: 0.9,
+        entities: result.entities,
+        targetIdentifier: result.targetIdentifier
       }
     }
 
@@ -304,5 +344,119 @@ export class IntentDetector {
     result.setDate(result.getDate() + daysToAdd)
 
     return result.toISOString().split('T')[0]
+  }
+
+  /**
+   * Extraire les informations pour la mise à jour d'une opportunité
+   */
+  private static extractUpdateDealInfo(message: string): { entities: Record<string, any>, targetIdentifier: string | undefined } {
+    const entities: Record<string, any> = {}
+    let targetIdentifier: string | undefined
+
+    // Extraire l'identifiant du client/opportunité ciblé
+    const targetPatterns = [
+      /(?:opportunit[ée]|deal)\s+(?:de|pour|avec|chez)\s+([A-Z][a-zA-Z\s&-]+?)(?:\s+(?:en|à|au|pour|le|la)|$)/i,
+      /(?:de|pour|d'|chez)\s+([A-Z][a-zA-Z\s&-]+?)(?:\s+(?:en|à|au|le|la)|$)/i,
+    ]
+
+    for (const pattern of targetPatterns) {
+      const match = message.match(pattern)
+      if (match) {
+        targetIdentifier = match[1].trim()
+        break
+      }
+    }
+
+    // Extraire le nouveau montant
+    const amountMatch = message.match(/(\d+[\s\u00A0]?\d*)\s*(?:k|mille|€|euros?)/i)
+    if (amountMatch) {
+      let amount = parseInt(amountMatch[1].replace(/[\s\u00A0]/g, ''))
+      if (message.toLowerCase().includes('k') || message.toLowerCase().includes('mille')) {
+        amount *= 1000
+      }
+      entities.amount = amount
+    }
+
+    // Extraire le nouveau statut
+    if (/(?:passer|mettre)\s+(?:en|à)\s+(?:n[ée]gociation)/i.test(message)) {
+      entities.status = 'negotiation'
+    } else if (/(?:passer|mettre)\s+(?:en|à)\s+(?:proposition)/i.test(message)) {
+      entities.status = 'proposal'
+    } else if (/(?:passer|mettre)\s+(?:en|à)\s+(?:prospect)/i.test(message)) {
+      entities.status = 'prospect'
+    } else if (/(?:passer|mettre)\s+(?:en|à)\s+(?:gagn[ée]|won)/i.test(message)) {
+      entities.status = 'won'
+    } else if (/(?:passer|mettre)\s+(?:en|à)\s+(?:perdu|lost)/i.test(message)) {
+      entities.status = 'lost'
+    }
+
+    // Extraire la nouvelle probabilité
+    const probabilityMatch = message.match(/(\d+)\s*%/)
+    if (probabilityMatch) {
+      entities.probability = parseInt(probabilityMatch[1])
+    }
+
+    return { entities, targetIdentifier }
+  }
+
+  /**
+   * Extraire les informations pour la mise à jour d'une action
+   */
+  private static extractUpdateActionInfo(message: string): { entities: Record<string, any>, targetIdentifier: string | undefined } {
+    const entities: Record<string, any> = {}
+    let targetIdentifier: string | undefined
+
+    // Extraire l'identifiant de l'action/contact ciblé
+    const targetPatterns = [
+      /(?:action|rendez-vous|r[ée]union|appel)\s+(?:de|pour|avec)\s+([A-Z][a-zA-Z\s&-]+?)(?:\s+(?:à|au|pour|le|la)|$)/i,
+      /(?:reporter|d[ée]caler|reprogrammer)\s+(?:l'|la|le)?\s*(?:action|rendez-vous|r[ée]union|appel)?\s*(?:avec|de|pour)\s+([A-Z][a-zA-Z\s&-]+?)(?:\s+(?:à|au|pour|le|la)|$)/i,
+    ]
+
+    for (const pattern of targetPatterns) {
+      const match = message.match(pattern)
+      if (match) {
+        targetIdentifier = match[1].trim()
+        break
+      }
+    }
+
+    // Extraire la nouvelle date
+    const today = new Date()
+    if (/aujourd'hui/i.test(message)) {
+      entities.dueDate = today.toISOString().split('T')[0]
+    } else if (/demain/i.test(message)) {
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      entities.dueDate = tomorrow.toISOString().split('T')[0]
+    } else if (/lundi/i.test(message)) {
+      entities.dueDate = this.getNextWeekday(1)
+    } else if (/mardi/i.test(message)) {
+      entities.dueDate = this.getNextWeekday(2)
+    } else if (/mercredi/i.test(message)) {
+      entities.dueDate = this.getNextWeekday(3)
+    } else if (/jeudi/i.test(message)) {
+      entities.dueDate = this.getNextWeekday(4)
+    } else if (/vendredi/i.test(message)) {
+      entities.dueDate = this.getNextWeekday(5)
+    }
+
+    // Extraire la nouvelle heure
+    const timeMatch = message.match(/(\d+)\s*(?:h|:)\s*(\d+)?/)
+    if (timeMatch) {
+      const hour = timeMatch[1]
+      const minute = timeMatch[2] || '00'
+      entities.time = `${hour}:${minute}`
+    }
+
+    // Extraire la nouvelle priorité
+    if (/(?:passer|mettre)\s+(?:en|à)\s+(?:urgent|prioritaire|haute)/i.test(message)) {
+      entities.priority = 'high'
+    } else if (/(?:passer|mettre)\s+(?:en|à)\s+(?:basse|faible)/i.test(message)) {
+      entities.priority = 'low'
+    } else if (/(?:passer|mettre)\s+(?:en|à)\s+(?:moyenne|normale)/i.test(message)) {
+      entities.priority = 'medium'
+    }
+
+    return { entities, targetIdentifier }
   }
 }

@@ -35,6 +35,10 @@ interface ChatInterfaceProps {
   conversationId: string
   onConversationUpdate?: () => void
   disableAutoScroll?: boolean
+  onAddDeal?: (deal: Omit<Deal, "id">) => void
+  onAddAction?: (action: Omit<ActionItem, "id">) => void
+  onUpdateDeal?: (id: string, updates: Partial<Deal>) => void
+  onUpdateAction?: (id: string, updates: Partial<ActionItem>) => void
 }
 
 // Composant pour afficher le markdown avec un style plus aéré
@@ -65,7 +69,16 @@ const MarkdownContent = ({ content }: { content: string }) => (
   </ReactMarkdown>
 )
 
-export function ChatInterface({ businessContext, conversationId, onConversationUpdate, disableAutoScroll = false }: ChatInterfaceProps) {
+export function ChatInterface({
+  businessContext,
+  conversationId,
+  onConversationUpdate,
+  disableAutoScroll = false,
+  onAddDeal,
+  onAddAction,
+  onUpdateDeal,
+  onUpdateAction
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -128,13 +141,33 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     (deal) => {
       // Callback quand un deal est créé
       console.log('[Conversational] Deal créé:', deal)
-      // TODO: Ajouter le deal à la base de données ou au contexte
+      if (onAddDeal) {
+        onAddDeal(deal)
+      }
     },
     (action) => {
       // Callback quand une action est créée
       console.log('[Conversational] Action créée:', action)
-      // TODO: Ajouter l'action à la base de données ou au contexte
-    }
+      if (onAddAction) {
+        onAddAction(action)
+      }
+    },
+    (id, updates) => {
+      // Callback quand un deal est modifié
+      console.log('[Conversational] Deal modifié:', id, updates)
+      if (onUpdateDeal) {
+        onUpdateDeal(id, updates)
+      }
+    },
+    (id, updates) => {
+      // Callback quand une action est modifiée
+      console.log('[Conversational] Action modifiée:', id, updates)
+      if (onUpdateAction) {
+        onUpdateAction(id, updates)
+      }
+    },
+    businessContext?.topDeals || [],
+    businessContext?.actionItems || []
   )
 
   // Fonction helper pour vérifier le support vocal
