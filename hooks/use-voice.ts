@@ -285,31 +285,9 @@ export function useVoice(
     setVoiceState('speaking')
     playActivationSound()
 
-    // Réponse vocale
-    speak("Oui, je vous écoute !", () => {
-      // Attendre 500ms après la fin de la synthèse pour éviter de capter l'écho
-      setTimeout(() => {
-        startConversationListening()
-        // Démarrer le timer d'inactivité (appelé directement, pas via le callback)
-        if (inactivityTimerRef.current) {
-          clearTimeout(inactivityTimerRef.current)
-        }
-        console.log('[Voice] Démarrage timer d\'inactivité (30s)')
-        inactivityTimerRef.current = setTimeout(() => {
-          console.log('[Voice] Timeout d\'inactivité atteint, retour au wake word')
-          isInConversationModeRef.current = false
-          if (synthesisRef.current && settings.autoSpeak) {
-            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
-              setTimeout(() => {
-                startWakeWordListening()
-              }, 500)
-            })
-          } else {
-            startWakeWordListening()
-          }
-        }, 30000)
-      }, 500)
-    })
+    // Réponse vocale - speak() gère automatiquement la reprise de l'écoute
+    // et le démarrage du timer d'inactivité via resetInactivityTimer()
+    speak("Oui, je vous écoute !")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playActivationSound, settings.autoSpeak])
 
