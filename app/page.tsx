@@ -442,6 +442,8 @@ export default function Home() {
                     }}
                     conversationId={activeConversationId}
                     onConversationUpdate={handleConversationUpdate}
+                    onAddDeal={handleAddDeal}
+                    onAddAction={handleAddAction}
                     disableAutoScroll={true}
                     key={`chat-${activeConversationId}`}
                   />

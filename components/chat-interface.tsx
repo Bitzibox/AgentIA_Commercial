@@ -35,6 +35,8 @@ interface ChatInterfaceProps {
   conversationId: string
   onConversationUpdate?: () => void
   disableAutoScroll?: boolean
+  onAddDeal?: (deal: Omit<Deal, "id">) => void
+  onAddAction?: (action: Omit<ActionItem, "id">) => void
 }
 
 // Composant pour afficher le markdown avec un style plus aéré
@@ -65,7 +67,14 @@ const MarkdownContent = ({ content }: { content: string }) => (
   </ReactMarkdown>
 )
 
-export function ChatInterface({ businessContext, conversationId, onConversationUpdate, disableAutoScroll = false }: ChatInterfaceProps) {
+export function ChatInterface({
+  businessContext,
+  conversationId,
+  onConversationUpdate,
+  disableAutoScroll = false,
+  onAddDeal,
+  onAddAction
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -128,12 +137,16 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
     (deal) => {
       // Callback quand un deal est créé
       console.log('[Conversational] Deal créé:', deal)
-      // TODO: Ajouter le deal à la base de données ou au contexte
+      if (onAddDeal) {
+        onAddDeal(deal)
+      }
     },
     (action) => {
       // Callback quand une action est créée
       console.log('[Conversational] Action créée:', action)
-      // TODO: Ajouter l'action à la base de données ou au contexte
+      if (onAddAction) {
+        onAddAction(action)
+      }
     }
   )
 
