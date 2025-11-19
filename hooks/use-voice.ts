@@ -24,6 +24,7 @@ export function useVoice(
   const isRecognitionActiveRef = useRef<boolean>(false) // Track if recognition is currently active
   const isPendingRestartRef = useRef<boolean>(false) // Prevent multiple simultaneous restarts
   const wakeWordDetectedRef = useRef<boolean>(false) // Prevent multiple wake word detections
+  const currentTranscriptRef = useRef<string>('') // Stocker le transcript en cours pour pouvoir l'envoyer dans onend
 
   // Initialisation des APIs Web Speech
   useEffect(() => {
@@ -298,7 +299,8 @@ export function useVoice(
     console.log('[Voice] Starting conversation listening...')
     setVoiceState('active')
 
-    let finalTranscript = ''
+    // Réinitialiser le transcript courant
+    currentTranscriptRef.current = ''
     let lastResultIndex = 0 // Track processed results
 
     recognitionRef.current.onresult = (event: any) => {
@@ -334,7 +336,7 @@ export function useVoice(
         const transcript = event.results[i][0].transcript
 
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' '
+          currentTranscriptRef.current += transcript + ' '
           lastResultIndex = i + 1
         } else {
           interim += transcript
@@ -355,13 +357,13 @@ export function useVoice(
         silenceTimerRef.current = null
       }
 
-      if (finalTranscript.trim()) {
+      if (currentTranscriptRef.current.trim()) {
         silenceTimerRef.current = setTimeout(() => {
-          const textToSend = finalTranscript.trim()
+          const textToSend = currentTranscriptRef.current.trim()
           console.log('[Voice] Silence detected, sending final transcript:', textToSend)
           onTranscript(textToSend, true)
           setInterimTranscript('')
-          finalTranscript = ''
+          currentTranscriptRef.current = ''
           lastResultIndex = 0
         }, 1500) // 1.5 secondes de silence
       }
@@ -384,6 +386,21 @@ export function useVoice(
     recognitionRef.current.onend = () => {
       console.log('[Voice] Conversation ended')
       isRecognitionActiveRef.current = false
+
+      // Annuler le timer de silence s'il existe
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current)
+        silenceTimerRef.current = null
+      }
+
+      // Envoyer le transcript accumulé s'il y en a un avant de redémarrer
+      if (currentTranscriptRef.current.trim()) {
+        const textToSend = currentTranscriptRef.current.trim()
+        console.log('[Voice] Sending accumulated transcript before restart:', textToSend)
+        onTranscript(textToSend, true)
+        setInterimTranscript('')
+        currentTranscriptRef.current = ''
+      }
 
       // Si on est en mode conversation, continuer d'écouter
       if (isInConversationModeRef.current) {
