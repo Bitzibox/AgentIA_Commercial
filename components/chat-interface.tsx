@@ -664,7 +664,21 @@ export function ChatInterface({ businessContext, conversationId, onConversationU
 
       // Lire la réponse vocalement si le mode vocal est actif
       if (voiceSettings.autoSpeak && voiceSettings.mode !== 'disabled' && finalResponse) {
+        // Arrêter la reconnaissance pendant que l'assistant parle
+        stopListening()
+
+        // Attendre un petit délai pour être sûr que la reconnaissance est arrêtée
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        // Lire la réponse
         await speak(finalResponse)
+
+        // Redémarrer la reconnaissance en mode wake word si on est en mode automatique
+        if (voiceSettings.mode === 'automatic') {
+          setTimeout(() => {
+            startWakeWordListening()
+          }, 500)
+        }
       }
     } catch (error: any) {
       console.error("Chat error:", error)
