@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+// Temporarily commented out due to network issues in build environment
+// import { Inter } from "next/font/google"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"] })
+// const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Agent Commercial IA - Copilote pour TPE/PME",
@@ -16,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={inter.className}>{children}</body>
+      <body>{children}</body>
     </html>
   )
 }
