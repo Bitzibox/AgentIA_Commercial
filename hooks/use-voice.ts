@@ -17,39 +17,7 @@ export function useVoice(
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isRecognitionActiveRef = useRef<boolean>(false) // Track if recognition is currently active
-
-  // Helper function to safely start recognition
-  const safeStartRecognition = useCallback(() => {
-    if (!recognitionRef.current) return false
-
-    // If already active, stop first and wait before restarting
-    if (isRecognitionActiveRef.current) {
-      console.log('[Voice] Recognition already active, stopping first...')
-      try {
-        recognitionRef.current.stop()
-      } catch (e) {
-        console.log('[Voice] Could not stop:', e)
-      }
-
-      // Wait for stop to complete before starting
-      setTimeout(() => {
-        isRecognitionActiveRef.current = false
-        safeStartRecognition()
-      }, 300)
-      return false
-    }
-
-    try {
-      console.log('[Voice] Starting recognition...')
-      recognitionRef.current.start()
-      isRecognitionActiveRef.current = true
-      return true
-    } catch (e) {
-      console.error('[Voice] Failed to start recognition:', e)
-      isRecognitionActiveRef.current = false
-      return false
-    }
-  }, [])
+  const isPendingRestartRef = useRef<boolean>(false) // Prevent multiple simultaneous restarts
 
   // Initialisation des APIs Web Speech
   useEffect(() => {
@@ -84,6 +52,8 @@ export function useVoice(
       if (restartTimerRef.current) {
         clearTimeout(restartTimerRef.current)
       }
+      isRecognitionActiveRef.current = false
+      isPendingRestartRef.current = false
     }
   }, [settings.language])
 
@@ -157,6 +127,7 @@ export function useVoice(
 
     recognitionRef.current.onstart = () => {
       isRecognitionActiveRef.current = true
+      isPendingRestartRef.current = false
       console.log('[Voice] Recognition started')
     }
 
@@ -167,9 +138,17 @@ export function useVoice(
       // Ne pas traiter comme erreur fatale
       if (event.error === 'no-speech' || event.error === 'aborted') {
         // Redémarrer automatiquement
-        if (settings.mode === 'automatic') {
+        if (settings.mode === 'automatic' && !isPendingRestartRef.current) {
+          isPendingRestartRef.current = true
           restartTimerRef.current = setTimeout(() => {
-            safeStartRecognition()
+            if (settings.mode === 'automatic' && !isRecognitionActiveRef.current) {
+              try {
+                recognitionRef.current?.start()
+              } catch (e) {
+                console.log('[Voice] Could not restart after error')
+                isPendingRestartRef.current = false
+              }
+            }
           }, 500)
         }
       } else if (event.error === 'not-allowed') {
@@ -184,16 +163,32 @@ export function useVoice(
       isRecognitionActiveRef.current = false
 
       // Redémarrer automatiquement en mode wake word
-      if (settings.mode === 'automatic' && voiceState === 'listening-wake-word') {
+      if (settings.mode === 'automatic' && voiceState === 'listening-wake-word' && !isPendingRestartRef.current) {
+        isPendingRestartRef.current = true
         restartTimerRef.current = setTimeout(() => {
-          safeStartRecognition()
+          if (settings.mode === 'automatic' && !isRecognitionActiveRef.current) {
+            try {
+              recognitionRef.current?.start()
+            } catch (e) {
+              console.log('[Voice] Could not restart after end')
+              isPendingRestartRef.current = false
+            }
+          }
         }, 500)
       }
     }
 
-    safeStartRecognition()
+    // Start recognition only if not already active
+    if (!isRecognitionActiveRef.current) {
+      try {
+        recognitionRef.current.start()
+      } catch (e) {
+        console.error('[Voice] Failed to start recognition:', e)
+        setError("Impossible de démarrer la reconnaissance vocale")
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.mode, safeStartRecognition])
+  }, [settings.mode])
 
   // Wake word détecté
   const onWakeWordDetected = useCallback(() => {
@@ -285,9 +280,16 @@ export function useVoice(
       // L'utilisateur doit réactiver avec le wake word
     }
 
-    safeStartRecognition()
+    // Start recognition only if not already active
+    if (!isRecognitionActiveRef.current) {
+      try {
+        recognitionRef.current.start()
+      } catch (e) {
+        console.error('[Voice] Failed to start conversation:', e)
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onTranscript, safeStartRecognition])
+  }, [onTranscript])
 
   // Mode manuel (push to talk)
   const startManualListening = useCallback(() => {
@@ -346,8 +348,15 @@ export function useVoice(
       setIsListening(false)
     }
 
-    safeStartRecognition()
-  }, [onTranscript, safeStartRecognition])
+    // Start recognition only if not already active
+    if (!isRecognitionActiveRef.current) {
+      try {
+        recognitionRef.current.start()
+      } catch (e) {
+        console.error('[Voice] Failed to start manual listening:', e)
+      }
+    }
+  }, [onTranscript])
 
   // Arrêter l'écoute
   const stopListening = useCallback(() => {
@@ -362,12 +371,16 @@ export function useVoice(
       }
     }
 
+    // Clear all timers and flags
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = null
     }
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current)
+      restartTimerRef.current = null
     }
+    isPendingRestartRef.current = false
 
     setIsListening(false)
     setVoiceState('idle')
