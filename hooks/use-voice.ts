@@ -286,7 +286,8 @@ export function useVoice(
     }
 
     safeStartRecognition()
-  }, [onTranscript, safeStartRecognition, stopListening])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onTranscript, safeStartRecognition])
 
   // Mode manuel (push to talk)
   const startManualListening = useCallback(() => {
