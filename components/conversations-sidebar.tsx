@@ -166,32 +166,39 @@ export function ConversationsSidebar({
               {displayedConversations.map((conversation) => (
                 <div
                   key={conversation.id}
-                  onClick={() => {
-                    onConversationChange(conversation.id)
-                    setIsMobileOpen(false)
-                  }}
                   className={cn(
-                    "group relative flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                    "group relative rounded-lg cursor-pointer transition-colors",
                     activeConversationId === conversation.id
                       ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                   )}
                 >
-                  <MessageSquare className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {conversation.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDate(conversation.updatedAt)}
-                    </p>
+                  <div
+                    className="flex items-start gap-3 p-3"
+                    onClick={() => {
+                      onConversationChange(conversation.id)
+                      setIsMobileOpen(false)
+                    }}
+                  >
+                    <MessageSquare className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                    <div className="flex-1 min-w-0 pr-14">
+                      <p
+                        className="text-sm font-medium text-foreground line-clamp-2 break-words"
+                        title={conversation.title}
+                      >
+                        {conversation.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatDate(conversation.updatedAt)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                     {conversation.archived ? (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-6 w-6 bg-background/50 hover:bg-background"
                         onClick={(e) => handleUnarchive(e, conversation.id)}
                         title="Désarchiver"
                       >
@@ -201,7 +208,7 @@ export function ConversationsSidebar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-6 w-6 bg-background/50 hover:bg-background"
                         onClick={(e) => handleArchive(e, conversation.id)}
                         title="Archiver"
                       >
@@ -211,7 +218,7 @@ export function ConversationsSidebar({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 bg-background/50 hover:bg-background"
                       onClick={(e) => handleDelete(e, conversation.id)}
                       title="Supprimer"
                     >

@@ -1,4 +1,6 @@
 // Service de synthèse vocale (Text-to-Speech)
+import { cleanTextForSpeech } from "./text-cleaner"
+
 export interface VoiceSettings {
   voice?: SpeechSynthesisVoice
   rate: number // Vitesse (0.1 à 10)
@@ -13,6 +15,8 @@ export class TextToSpeechService {
   private isSpeaking = false
   private isPaused = false
   private voices: SpeechSynthesisVoice[] = []
+  private currentText: string = "" // Texte en cours de lecture
+  private wasInterrupted: boolean = false // Indique si la lecture a été interrompue
 
   // Callbacks
   private onStartCallback?: () => void
@@ -20,6 +24,7 @@ export class TextToSpeechService {
   private onPauseCallback?: () => void
   private onResumeCallback?: () => void
   private onErrorCallback?: (error: string) => void
+  private onInterruptCallback?: () => void
 
   // Paramètres par défaut
   private settings: VoiceSettings = {
@@ -99,8 +104,15 @@ export class TextToSpeechService {
       // Annuler toute parole en cours
       this.stop()
 
+      // Nettoyer le texte pour la synthèse vocale
+      const cleanedText = cleanTextForSpeech(text)
+
+      // Sauvegarder le texte et réinitialiser l'état d'interruption
+      this.currentText = cleanedText
+      this.wasInterrupted = false
+
       // Créer une nouvelle utterance
-      this.currentUtterance = new SpeechSynthesisUtterance(text)
+      this.currentUtterance = new SpeechSynthesisUtterance(cleanedText)
 
       // Appliquer les paramètres
       this.currentUtterance.rate = this.settings.rate
@@ -184,6 +196,14 @@ export class TextToSpeechService {
     if (!this.synthesis) return
 
     try {
+      // Si on était en train de parler, marquer comme interrompu
+      if (this.isSpeaking && !this.isPaused) {
+        this.wasInterrupted = true
+        if (this.onInterruptCallback) {
+          this.onInterruptCallback()
+        }
+      }
+
       this.synthesis.cancel()
       this.isSpeaking = false
       this.isPaused = false
@@ -191,6 +211,89 @@ export class TextToSpeechService {
     } catch (error) {
       console.error("Erreur arrêt:", error)
     }
+  }
+
+  // Répéter le dernier texte
+  repeatLast(): Promise<void> {
+    if (!this.currentText) {
+      return Promise.reject(new Error("Aucun texte à répéter"))
+    }
+    // Réutiliser le texte déjà nettoyé
+    return this.speakCleaned(this.currentText)
+  }
+
+  // Parler avec un texte déjà nettoyé (usage interne pour répéter)
+  private speakCleaned(cleanedText: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.synthesis) {
+        const error = "La synthèse vocale n'est pas supportée"
+        if (this.onErrorCallback) this.onErrorCallback(error)
+        reject(new Error(error))
+        return
+      }
+
+      // Annuler toute parole en cours
+      this.stop()
+
+      // Réinitialiser l'état d'interruption
+      this.wasInterrupted = false
+
+      // Créer une nouvelle utterance
+      this.currentUtterance = new SpeechSynthesisUtterance(cleanedText)
+
+      // Appliquer les paramètres
+      this.currentUtterance.rate = this.settings.rate
+      this.currentUtterance.pitch = this.settings.pitch
+      this.currentUtterance.volume = this.settings.volume
+      this.currentUtterance.lang = this.settings.lang
+
+      if (this.settings.voice) {
+        this.currentUtterance.voice = this.settings.voice
+      }
+
+      // Événements
+      this.currentUtterance.onstart = () => {
+        this.isSpeaking = true
+        this.isPaused = false
+        if (this.onStartCallback) this.onStartCallback()
+      }
+
+      this.currentUtterance.onend = () => {
+        this.isSpeaking = false
+        this.isPaused = false
+        if (this.onEndCallback) this.onEndCallback()
+        resolve()
+      }
+
+      this.currentUtterance.onpause = () => {
+        this.isPaused = true
+        if (this.onPauseCallback) this.onPauseCallback()
+      }
+
+      this.currentUtterance.onresume = () => {
+        this.isPaused = false
+        if (this.onResumeCallback) this.onResumeCallback()
+      }
+
+      this.currentUtterance.onerror = (event) => {
+        this.isSpeaking = false
+        this.isPaused = false
+        const error = `Erreur synthèse vocale: ${event.error}`
+        console.error(error)
+        if (this.onErrorCallback) this.onErrorCallback(error)
+        reject(new Error(error))
+      }
+
+      // Démarrer la synthèse
+      try {
+        this.synthesis.speak(this.currentUtterance)
+      } catch (error) {
+        const errorMsg = "Erreur lors du démarrage de la synthèse vocale"
+        console.error(errorMsg, error)
+        if (this.onErrorCallback) this.onErrorCallback(errorMsg)
+        reject(error)
+      }
+    })
   }
 
   // État
@@ -221,6 +324,25 @@ export class TextToSpeechService {
 
   onError(callback: (error: string) => void) {
     this.onErrorCallback = callback
+  }
+
+  onInterrupt(callback: () => void) {
+    this.onInterruptCallback = callback
+  }
+
+  // Vérifier si la lecture a été interrompue
+  wasInterruptedRecently(): boolean {
+    return this.wasInterrupted
+  }
+
+  // Réinitialiser l'état d'interruption
+  clearInterruptedState() {
+    this.wasInterrupted = false
+  }
+
+  // Obtenir le texte en cours de lecture
+  getCurrentText(): string {
+    return this.currentText
   }
 
   // Utilitaires pour ajuster les paramètres

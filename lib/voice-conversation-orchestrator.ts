@@ -23,9 +23,66 @@ export class VoiceConversationOrchestrator {
   private lastAssistantMessage = ""
   private callbacks: ConversationCallbacks = {}
   private autoRestartListening = true // Redémarrer automatiquement l'écoute après la réponse
+  private listenDuringSpeech = true // Écouter pendant que l'assistant parle pour détecter les interruptions
+  private isListeningForInterruption = false // Indique si on écoute pour une interruption
+  private interruptionRecognition: any = null // Instance dédiée pour l'écoute d'interruption
 
   constructor() {
     this.setupServices()
+    this.setupInterruptionRecognition()
+  }
+
+  // Configurer la reconnaissance vocale pour les interruptions
+  private setupInterruptionRecognition() {
+    if (typeof window === "undefined") return
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
+
+    if (!SpeechRecognition) return
+
+    this.interruptionRecognition = new SpeechRecognition()
+    this.interruptionRecognition.continuous = true // Continue d'écouter
+    this.interruptionRecognition.interimResults = true // Résultats rapides
+    this.interruptionRecognition.lang = "fr-FR"
+
+    this.interruptionRecognition.onresult = (event: any) => {
+      // Chercher le dernier résultat final
+      for (let i = event.results.length - 1; i >= 0; i--) {
+        if (event.results[i].isFinal) {
+          const transcript = event.results[i][0].transcript.trim()
+
+          // Ignorer les transcripts vides ou très courts
+          if (transcript.length < 2) continue
+
+          console.log("Interruption détectée:", transcript)
+
+          // Arrêter l'écoute d'interruption
+          this.stopListeningForInterruption()
+
+          // Arrêter l'assistant immédiatement
+          this.stopSpeaking()
+
+          // Traiter la parole de l'utilisateur
+          this.handleUserSpeech(transcript)
+          break
+        }
+      }
+    }
+
+    this.interruptionRecognition.onend = () => {
+      this.isListeningForInterruption = false
+      console.log("Écoute d'interruption terminée")
+    }
+
+    this.interruptionRecognition.onerror = (event: any) => {
+      console.error("Erreur écoute interruption:", event.error)
+      // Ne pas traiter comme une erreur fatale
+      if (event.error !== "no-speech" && event.error !== "aborted") {
+        this.isListeningForInterruption = false
+      }
+    }
   }
 
   // Configuration des services
@@ -63,10 +120,25 @@ export class VoiceConversationOrchestrator {
     // Synthèse vocale - Début de parole
     textToSpeechService.onStart(() => {
       this.setState("speaking")
+
+      // Démarrer l'écoute pour détecter les interruptions
+      if (this.listenDuringSpeech && this.isActive) {
+        setTimeout(() => {
+          // Attendre un peu pour éviter de capter le début de la synthèse
+          if (textToSpeechService.getIsSpeaking()) {
+            this.startListeningForInterruption()
+          }
+        }, 1000) // Attendre 1 seconde après le début de la parole
+      }
     })
 
     // Synthèse vocale - Fin de parole
     textToSpeechService.onEnd(() => {
+      // Arrêter l'écoute d'interruption si active
+      if (this.isListeningForInterruption) {
+        this.stopListeningForInterruption()
+      }
+
       if (this.isActive && this.autoRestartListening) {
         // Redémarrer l'écoute après que l'assistant ait fini de parler
         setTimeout(() => {
@@ -76,6 +148,15 @@ export class VoiceConversationOrchestrator {
         }, 500)
       } else {
         this.setState("idle")
+      }
+    })
+
+    // Synthèse vocale - Interruption
+    textToSpeechService.onInterrupt(() => {
+      console.log("Assistant interrompu par l'utilisateur")
+      // Arrêter l'écoute d'interruption
+      if (this.isListeningForInterruption) {
+        this.isListeningForInterruption = false
       }
     })
 
@@ -198,6 +279,40 @@ export class VoiceConversationOrchestrator {
     voiceRecognitionService.start()
   }
 
+  // Démarrer l'écoute pour détecter les interruptions
+  private startListeningForInterruption() {
+    if (!this.interruptionRecognition || this.isListeningForInterruption) {
+      return
+    }
+
+    console.log("Démarrage écoute d'interruption...")
+    this.isListeningForInterruption = true
+
+    try {
+      this.interruptionRecognition.start()
+    } catch (error) {
+      console.error("Erreur démarrage écoute interruption:", error)
+      this.isListeningForInterruption = false
+    }
+  }
+
+  // Arrêter l'écoute d'interruption
+  private stopListeningForInterruption() {
+    if (!this.interruptionRecognition || !this.isListeningForInterruption) {
+      return
+    }
+
+    console.log("Arrêt écoute d'interruption...")
+
+    try {
+      this.interruptionRecognition.stop()
+    } catch (error) {
+      console.error("Erreur arrêt écoute interruption:", error)
+    }
+
+    this.isListeningForInterruption = false
+  }
+
   // Faire parler l'assistant
   async speak(text: string) {
     if (!textToSpeechService.isSupported()) {
@@ -281,6 +396,12 @@ export class VoiceConversationOrchestrator {
     this.autoRestartListening = false
     voiceRecognitionService.stop()
     textToSpeechService.stop()
+
+    // Arrêter l'écoute d'interruption si active
+    if (this.isListeningForInterruption) {
+      this.stopListeningForInterruption()
+    }
+
     this.setState("idle")
   }
 
