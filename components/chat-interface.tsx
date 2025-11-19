@@ -749,14 +749,11 @@ export function ChatInterface({
         await new Promise(resolve => setTimeout(resolve, 300))
 
         // Lire la réponse
+        // Note : Le hook useVoice gère automatiquement la continuation de la conversation
+        // après la lecture, donc pas besoin de redémarrer manuellement l'écoute
         console.log('[ChatInterface] Appel de speak() avec:', finalResponse.substring(0, 100))
         await speak(finalResponse)
-        console.log('[ChatInterface] speak() terminé')
-
-        // Redémarrer la reconnaissance en mode wake word
-        setTimeout(() => {
-          startWakeWordListening()
-        }, 500)
+        console.log('[ChatInterface] speak() terminé - Le hook reprendra l\'écoute automatiquement')
       } else {
         console.log('[ChatInterface] Lecture vocale ignorée car shouldSpeak=' + shouldSpeak + ', finalResponse=' + !!finalResponse)
       }

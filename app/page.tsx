@@ -394,22 +394,8 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Boutons pour gérer les insights IA et mode vocal */}
-            <div className="flex justify-between items-center gap-4">
-              {/* Toggle mode vocal automatique */}
-              <div className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                <Radio className={`h-4 w-4 ${voiceMode === 'automatic' ? 'text-green-500 animate-pulse' : 'text-muted-foreground'}`} />
-                <Label htmlFor="voice-mode-toggle" className="text-sm font-medium cursor-pointer">
-                  Mode vocal auto
-                </Label>
-                <Switch
-                  id="voice-mode-toggle"
-                  checked={voiceMode === 'automatic'}
-                  onCheckedChange={(checked) => setVoiceMode(checked ? 'automatic' : 'disabled')}
-                  className="data-[state=checked]:bg-green-500"
-                />
-              </div>
-
+            {/* Boutons pour gérer les insights IA */}
+            <div className="flex justify-end items-center gap-4">
               {/* Boutons insights */}
               <div className="flex gap-2">
                 <Button
@@ -469,6 +455,20 @@ export default function Home() {
 
           {/* Chat Tab avec Sidebar */}
           <TabsContent value="chat" className="space-y-6">
+            {/* Toggle mode vocal automatique */}
+            <div className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors w-fit">
+              <Radio className={`h-4 w-4 ${voiceMode === 'automatic' ? 'text-green-500 animate-pulse' : 'text-muted-foreground'}`} />
+              <Label htmlFor="voice-mode-toggle-chat" className="text-sm font-medium cursor-pointer">
+                Mode vocal automatique
+              </Label>
+              <Switch
+                id="voice-mode-toggle-chat"
+                checked={voiceMode === 'automatic'}
+                onCheckedChange={(checked) => setVoiceMode(checked ? 'automatic' : 'disabled')}
+                className="data-[state=checked]:bg-green-500"
+              />
+            </div>
+
             <div className="flex gap-4 h-[calc(100vh-220px)] min-h-[600px]">
               <ConversationsSidebar
                 activeConversationId={activeConversationId}
