@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Send, Bot, User, Loader2, Sparkles, Copy, Check, Mic, MicOff, Volume2, VolumeX, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Message, Deal, ActionItem } from "@/types"
+import { Message, Deal, ActionItem, Quote } from "@/types"
 import { VoiceSettings, VoiceMode, PendingAction } from "@/types/voice"
 import { geminiClientService } from "@/lib/gemini-client"
 import { conversationManager } from "@/lib/conversation-manager"
@@ -18,7 +18,7 @@ import { useConversational } from "@/hooks/use-conversational"
 import { IntentDetector } from "@/lib/intent-detector"
 import { VoiceIndicator } from "@/components/voice-indicator"
 import { VoiceSettingsPanel } from "@/components/voice-settings-panel"
-import { DealProposalCard, ActionProposalCard } from "@/components/action-proposal-card"
+import { DealProposalCard, ActionProposalCard, QuoteProposalCard } from "@/components/action-proposal-card"
 import { TemplatesModal } from "@/components/templates-modal"
 import {
   Dialog,
@@ -37,6 +37,7 @@ interface ChatInterfaceProps {
   disableAutoScroll?: boolean
   onAddDeal?: (deal: Omit<Deal, "id">) => void
   onAddAction?: (action: Omit<ActionItem, "id">) => void
+  onAddQuote?: (quote: Omit<Quote, "id" | "quoteNumber" | "createdAt" | "expiresAt" | "opened" | "openCount">) => void
   onUpdateDeal?: (id: string, updates: Partial<Deal>) => void
   onUpdateAction?: (id: string, updates: Partial<ActionItem>) => void
   voiceMode?: VoiceMode
@@ -78,6 +79,7 @@ export function ChatInterface({
   disableAutoScroll = false,
   onAddDeal,
   onAddAction,
+  onAddQuote,
   onUpdateDeal,
   onUpdateAction,
   voiceMode: externalVoiceMode,
@@ -162,6 +164,13 @@ export function ChatInterface({
       console.log('[Conversational] Action créée:', action)
       if (onAddAction) {
         onAddAction(action)
+      }
+    },
+    (quote) => {
+      // Callback quand un devis est créé
+      console.log('[Conversational] Devis créé:', quote)
+      if (onAddQuote) {
+        onAddQuote(quote)
       }
     },
     (id, updates) => {
@@ -262,6 +271,8 @@ export function ChatInterface({
       if (voiceSettings.autoSpeak) {
         if (pendingAction.type === 'create_deal') {
           await speak("Parfait ! L'opportunité a été créée avec succès.")
+        } else if (pendingAction.type === 'create_quote') {
+          await speak("Parfait ! Le devis a été créé avec succès.")
         } else {
           await speak("L'action a été créée avec succès.")
         }
@@ -273,6 +284,8 @@ export function ChatInterface({
         role: "assistant",
         content: pendingAction.type === 'create_deal'
           ? `✅ Opportunité créée avec succès !`
+          : pendingAction.type === 'create_quote'
+          ? `✅ Devis créé avec succès !`
           : `✅ Action créée avec succès !`,
         timestamp: new Date(),
       }
@@ -1065,12 +1078,23 @@ export function ChatInterface({
             </div>
           )}
 
-          {/* Cartes de proposition (deals/actions) */}
+          {/* Cartes de proposition (deals/actions/quotes) */}
           {pendingAction && (
             <div className="mb-6">
               {pendingAction.type === 'create_deal' ? (
                 <DealProposalCard
                   deal={pendingAction.data}
+                  onConfirm={handleConfirmPendingAction}
+                  onCancel={() => {
+                    cancelPendingAction()
+                    if (voiceSettings.autoSpeak) {
+                      speak("D'accord, annulé.")
+                    }
+                  }}
+                />
+              ) : pendingAction.type === 'create_quote' ? (
+                <QuoteProposalCard
+                  quote={pendingAction.data}
                   onConfirm={handleConfirmPendingAction}
                   onCancel={() => {
                     cancelPendingAction()

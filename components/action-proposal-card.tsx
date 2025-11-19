@@ -13,8 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Target, CheckSquare, Check, X, Edit } from 'lucide-react'
-import { Deal, ActionItem } from '@/types'
+import { Target, CheckSquare, Check, X, Edit, FileText } from 'lucide-react'
+import { Deal, ActionItem, Quote } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 
 interface DealProposalCardProps {
@@ -343,6 +343,127 @@ export function ActionProposalCard({ action: initialAction, onConfirm, onCancel 
         <Button onClick={handleConfirm} className="flex-1 gap-2">
           <Check className="h-4 w-4" />
           Créer
+        </Button>
+      </CardFooter>
+    </Card>
+  )
+}
+
+interface QuoteProposalCardProps {
+  quote: Partial<Quote>
+  onConfirm: (quote: Partial<Quote>) => void
+  onCancel: () => void
+}
+
+export function QuoteProposalCard({ quote: initialQuote, onConfirm, onCancel }: QuoteProposalCardProps) {
+  const [quote, setQuote] = useState<Partial<Quote>>(initialQuote)
+
+  const handleConfirm = () => {
+    onConfirm(quote)
+  }
+
+  const formatAmount = (amount: number | undefined) => {
+    if (!amount) return '0,00 €'
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(amount)
+  }
+
+  return (
+    <Card className="w-full border-2 border-blue-500 shadow-lg">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-blue-700">
+          <FileText className="h-5 w-5" />
+          Devis à créer
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Client */}
+          <div>
+            <Label className="text-sm text-gray-600">Client</Label>
+            <Input
+              value={quote.company || ''}
+              onChange={(e) => setQuote({ ...quote, company: e.target.value })}
+              placeholder="Nom du client"
+            />
+          </div>
+
+          {/* Contact */}
+          <div>
+            <Label className="text-sm text-gray-600">Contact</Label>
+            <Input
+              value={quote.contact || ''}
+              onChange={(e) => setQuote({ ...quote, contact: e.target.value })}
+              placeholder="Nom du contact"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <Label className="text-sm text-gray-600">Email</Label>
+            <Input
+              type="email"
+              value={quote.email || ''}
+              onChange={(e) => setQuote({ ...quote, email: e.target.value })}
+              placeholder="email@example.com"
+            />
+          </div>
+
+          {/* Articles */}
+          {quote.items && quote.items.length > 0 && (
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Articles</Label>
+              <div className="space-y-2">
+                {quote.items.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm bg-gray-50 p-2 rounded">
+                    <span className="font-semibold">{item.quantity}x</span>
+                    <span className="flex-1">{item.description}</span>
+                    <span className="text-blue-600 font-semibold">{formatAmount(item.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Montants */}
+          <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Sous-total HT:</span>
+              <span className="font-semibold">{formatAmount(quote.subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>TVA:</span>
+              <span className="font-semibold">{formatAmount(quote.taxAmount)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold border-t pt-2">
+              <span>Total TTC:</span>
+              <span className="text-blue-600">{formatAmount(quote.totalAmount)}</span>
+            </div>
+          </div>
+
+          {/* Conditions */}
+          <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+            <div>
+              <span className="block text-xs">Validité</span>
+              <span className="font-semibold">{quote.validityDays || 30} jours</span>
+            </div>
+            <div>
+              <span className="block text-xs">Paiement</span>
+              <span className="font-semibold">{quote.paymentTerms || '30 jours nets'}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex gap-2">
+        <Button onClick={onCancel} variant="outline" className="flex-1 gap-2">
+          <X className="h-4 w-4" />
+          Annuler
+        </Button>
+        <Button onClick={handleConfirm} className="flex-1 gap-2">
+          <Check className="h-4 w-4" />
+          Créer le devis
         </Button>
       </CardFooter>
     </Card>

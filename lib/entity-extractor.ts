@@ -1,6 +1,6 @@
 // Extracteur d'entités pour compléter les informations extraites
 
-import { Deal, ActionItem } from '@/types'
+import { Deal, ActionItem, Quote, QuoteItem } from '@/types'
 
 export class EntityExtractor {
   /**
@@ -301,5 +301,142 @@ export class EntityExtractor {
       day: 'numeric',
       month: 'long',
     }).format(date)
+  }
+
+  /**
+   * Créer un devis à partir des entités extraites
+   */
+  static createQuoteFromEntities(entities: Record<string, any>): Partial<Quote> {
+    // Créer les items du devis
+    const items: Omit<QuoteItem, 'id'>[] = []
+
+    if (entities.items && Array.isArray(entities.items)) {
+      // Si des items sont spécifiés
+      entities.items.forEach((item: any, index: number) => {
+        const unitPrice = entities.unitPrice || item.unitPrice || 0
+        const quantity = item.quantity || 1
+        const description = item.description || `Article ${index + 1}`
+        const total = unitPrice * quantity
+
+        items.push({
+          description,
+          quantity,
+          unitPrice,
+          total,
+          taxRate: 20, // TVA par défaut
+        })
+      })
+    } else {
+      // Créer un item par défaut si aucun n'est spécifié
+      const unitPrice = entities.unitPrice || entities.totalAmount || 0
+      items.push({
+        description: entities.description || 'Prestation de service',
+        quantity: 1,
+        unitPrice,
+        total: unitPrice,
+        taxRate: 20,
+      })
+    }
+
+    // Calculer les montants
+    const subtotal = items.reduce((sum, item) => sum + item.total, 0)
+    const taxAmount = items.reduce((sum, item) => {
+      return sum + (item.total * (item.taxRate || 0) / 100)
+    }, 0)
+    const totalAmount = subtotal + taxAmount
+
+    return {
+      company: entities.client || 'Client',
+      contact: entities.contact || 'Contact',
+      email: entities.email || '',
+      phone: entities.phone || '',
+      address: entities.address || '',
+      items: items as any[], // Cast temporaire
+      subtotal,
+      taxAmount,
+      totalAmount,
+      validityDays: 30,
+      paymentTerms: '30 jours nets',
+      status: 'Brouillon',
+    } as any
+  }
+
+  /**
+   * Générer un message de confirmation pour un devis
+   */
+  static generateQuoteConfirmation(quote: Partial<Quote>): string {
+    const parts: string[] = []
+
+    parts.push(`Devis pour ${quote.company || 'client'}`)
+
+    if (quote.contact) {
+      parts.push(`contact : ${quote.contact}`)
+    }
+
+    if (quote.items && quote.items.length > 0) {
+      const itemsDesc = quote.items.map(item =>
+        `${item.quantity} × ${item.description}`
+      ).join(', ')
+      parts.push(`articles : ${itemsDesc}`)
+    }
+
+    if (quote.totalAmount) {
+      parts.push(`montant total TTC : ${this.formatCurrency(quote.totalAmount)}`)
+    }
+
+    return parts.join(', ')
+  }
+
+  /**
+   * Mettre à jour un devis avec des modifications
+   */
+  static updateQuoteWithModifications(
+    quote: Partial<Quote>,
+    modifications: Record<string, any>
+  ): Partial<Quote> {
+    const updated = { ...quote, ...modifications }
+
+    // Recalculer les montants si les items changent
+    if (modifications.items) {
+      const subtotal = modifications.items.reduce((sum: number, item: QuoteItem) => sum + item.total, 0)
+      const taxAmount = modifications.items.reduce((sum: number, item: QuoteItem) => {
+        return sum + (item.total * (item.taxRate || 0) / 100)
+      }, 0)
+      updated.subtotal = subtotal
+      updated.taxAmount = taxAmount
+      updated.totalAmount = subtotal + taxAmount
+    }
+
+    return updated
+  }
+
+  /**
+   * Générer un message de confirmation pour la mise à jour d'un devis
+   */
+  static generateQuoteUpdateConfirmation(quote: Quote, updates: Record<string, any>): string {
+    let message = `Je modifie le devis ${quote.quoteNumber} pour ${quote.company} : `
+    const changes: string[] = []
+
+    if (updates.status) {
+      const statusLabels: Record<string, string> = {
+        'Brouillon': 'brouillon',
+        'Envoyé': 'envoyé',
+        'Vu': 'vu',
+        'Accepté': 'accepté',
+        'Refusé': 'refusé',
+        'Expiré': 'expiré',
+      }
+      changes.push(`statut → ${statusLabels[updates.status] || updates.status}`)
+    }
+
+    if (updates.totalAmount !== undefined) {
+      changes.push(`montant → ${this.formatCurrency(updates.totalAmount)}`)
+    }
+
+    if (updates.validityDays !== undefined) {
+      changes.push(`validité → ${updates.validityDays} jours`)
+    }
+
+    return message + changes.join(', ')
   }
 }

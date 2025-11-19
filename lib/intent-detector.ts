@@ -24,7 +24,17 @@ export class IntentDetector {
     /envoyer\s+(un\s+)?(mail|email|message)/i,
     /(planifier|programmer|organiser)\s+(un\s+)?(rendez-vous|r[ée]union|meeting|appel)/i,
     /fixer\s+(un\s+)?(rendez-vous|meeting)/i,
-    /(pr[ée]parer|rédiger)\s+(une\s+)?(proposition|devis|offre)/i,
+  ]
+
+  // Patterns pour détecter la création d'un devis
+  private static quotePatterns = [
+    /g[ée]n[ée]rer?\s+(un\s+)?devis/i,
+    /cr[ée]er?\s+(un\s+)?devis/i,
+    /faire\s+(un\s+)?devis/i,
+    /nouveau\s+devis/i,
+    /établir\s+(un\s+)?devis/i,
+    /(pr[ée]parer|rédiger)\s+(un\s+)?devis/i,
+    /devis\s+pour/i,
   ]
 
   // Patterns pour détecter une confirmation
@@ -121,6 +131,15 @@ export class IntentDetector {
         confidence: 0.9,
         entities: result.entities,
         targetIdentifier: result.targetIdentifier
+      }
+    }
+
+    // Détecter création de devis (priorité haute car plus spécifique)
+    if (this.matchesPatterns(message, this.quotePatterns)) {
+      return {
+        intent: 'create_quote',
+        confidence: 0.9,
+        entities: this.extractQuoteEntities(message)
       }
     }
 
@@ -458,5 +477,105 @@ export class IntentDetector {
     }
 
     return { entities, targetIdentifier }
+  }
+
+  /**
+   * Extraire les entités pour un devis
+   */
+  private static extractQuoteEntities(message: string): Record<string, any> {
+    const entities: Record<string, any> = {}
+
+    // Extraire le nom du client
+    const clientPatterns = [
+      /devis\s+pour\s+([A-Z][a-zA-Z\s&-]+?)(?:\s+(?:,|pour|avec|\d)|$)/i,
+      /(?:client|entreprise|société)\s+([A-Z][a-zA-Z\s&-]+?)(?:\s+(?:,|pour|de|\d)|$)/i,
+      /([A-Z][a-zA-Z\s&-]+?)\s*,/,
+    ]
+
+    for (const pattern of clientPatterns) {
+      const match = message.match(pattern)
+      if (match) {
+        entities.client = match[1].trim()
+        break
+      }
+    }
+
+    // Extraire les articles/services avec quantité et description
+    // Pattern: "3 licences logiciel", "5 formations", "10 heures de consulting"
+    const items: Array<{ description: string; quantity: number; unitPrice?: number }> = []
+
+    const itemPatterns = [
+      /(\d+)\s+(licences?\s+[a-zé]+|formations?|heures?\s+de\s+[a-zé]+|produits?\s+[a-zé]+|services?\s+[a-zé]+)/i,
+      /(\d+)\s+([a-zé\s]+?)(?:\s+(?:à|pour|de|\d))/i,
+    ]
+
+    for (const pattern of itemPatterns) {
+      const matches = message.matchAll(new RegExp(pattern.source, 'gi'))
+      for (const match of matches) {
+        const quantity = parseInt(match[1])
+        const description = match[2].trim()
+        items.push({ description, quantity })
+      }
+    }
+
+    if (items.length > 0) {
+      entities.items = items
+    }
+
+    // Extraire le prix unitaire ou montant total
+    // Pattern: "150€/mois", "1500 euros", "50k", "2500€"
+    const pricePatterns = [
+      /(\d+[\s\u00A0]?\d*)\s*(?:€|euros?)\s*(?:\/|par)\s*(?:mois|an|licence|unité|heure)/i,
+      /(\d+[\s\u00A0]?\d*)\s*(?:k)\s*(?:€|euros?)?/i,
+      /(\d+[\s\u00A0]?\d*)\s*(?:€|euros?)/i,
+    ]
+
+    for (const pattern of pricePatterns) {
+      const match = message.match(pattern)
+      if (match) {
+        let amount = parseInt(match[1].replace(/[\s\u00A0]/g, ''))
+
+        // Si c'est en milliers (k)
+        if (message.toLowerCase().includes('k')) {
+          amount *= 1000
+        }
+
+        // Déterminer si c'est un prix unitaire ou un montant total
+        if (message.match(/(?:\/|par)\s*(?:mois|an|licence|unité|heure)/i)) {
+          entities.unitPrice = amount
+        } else {
+          entities.totalAmount = amount
+        }
+        break
+      }
+    }
+
+    // Extraire l'email du contact
+    const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)
+    if (emailMatch) {
+      entities.email = emailMatch[1]
+    }
+
+    // Extraire le téléphone
+    const phoneMatch = message.match(/(?:\+?\d{1,3}[\s.-]?)?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,4}[\s.-]?\d{1,9}/i)
+    if (phoneMatch) {
+      entities.phone = phoneMatch[0]
+    }
+
+    // Extraire le nom du contact
+    const contactPatterns = [
+      /contact\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
+      /pour\s+([A-Z][a-z]+\s+[A-Z][a-z]+)/i,
+    ]
+
+    for (const pattern of contactPatterns) {
+      const match = message.match(pattern)
+      if (match && match[1] !== entities.client) {
+        entities.contact = match[1].trim()
+        break
+      }
+    }
+
+    return entities
   }
 }
