@@ -211,15 +211,15 @@ export function ChatInterface({
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript.trim()) return
 
-    // Capturer l'état du mode vocal au moment où l'utilisateur parle
-    // pour s'assurer que la réponse sera lue même si le mode change pendant le traitement
-    const shouldSpeakResponse = voiceSettings.autoSpeak && voiceSettings.mode === 'automatic'
+    // IMPORTANT : Si l'utilisateur parle, on veut TOUJOURS lire la réponse
+    // Peu importe si le mode change pendant le traitement de la requête
+    const shouldSpeakResponse = true
 
     console.log('[ChatInterface] handleVoiceInput:', {
       transcript,
       autoSpeak: voiceSettings.autoSpeak,
       mode: voiceSettings.mode,
-      shouldSpeakResponse
+      shouldSpeakResponse: '(forcé à true car entrée vocale)'
     })
 
     // Détecter l'intention du message
