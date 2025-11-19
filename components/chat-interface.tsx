@@ -39,6 +39,8 @@ interface ChatInterfaceProps {
   onAddAction?: (action: Omit<ActionItem, "id">) => void
   onUpdateDeal?: (id: string, updates: Partial<Deal>) => void
   onUpdateAction?: (id: string, updates: Partial<ActionItem>) => void
+  voiceMode?: VoiceMode
+  onVoiceModeChange?: (mode: VoiceMode) => void
 }
 
 // Composant pour afficher le markdown avec un style plus aéré
@@ -77,7 +79,9 @@ export function ChatInterface({
   onAddDeal,
   onAddAction,
   onUpdateDeal,
-  onUpdateAction
+  onUpdateAction,
+  voiceMode: externalVoiceMode,
+  onVoiceModeChange
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -95,13 +99,21 @@ export function ChatInterface({
 
   // Nouveaux états pour le système vocal
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
-    mode: 'disabled',
+    mode: externalVoiceMode || 'disabled',
     wakeWord: 'Hey Agent',
     conversationalMode: true,
     autoSpeak: true,
     language: 'fr-FR',
     voiceSpeed: 1.0,
   })
+
+  // Synchroniser le voiceMode externe avec le state interne
+  useEffect(() => {
+    if (externalVoiceMode !== undefined && externalVoiceMode !== voiceSettings.mode) {
+      setVoiceSettings(prev => ({ ...prev, mode: externalVoiceMode }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalVoiceMode])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -814,6 +826,11 @@ export function ChatInterface({
   // Gérer le changement de mode vocal
   const handleVoiceModeChange = (mode: VoiceMode) => {
     setVoiceSettings((prev) => ({ ...prev, mode }))
+
+    // Notifier le parent si le callback est fourni
+    if (onVoiceModeChange) {
+      onVoiceModeChange(mode)
+    }
 
     if (mode === 'automatic') {
       // Arrêter d'abord toute reconnaissance en cours
