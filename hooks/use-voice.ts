@@ -15,8 +15,6 @@ export function useVoice(
 
   const recognitionRef = useRef<any>(null)
   const synthesisRef = useRef<SpeechSynthesis | null>(null)
-  const interruptionRecognitionRef = useRef<any>(null) // Pour l'écoute d'interruption
-  const isListeningForInterruptionRef = useRef<boolean>(false)
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null)
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null) // Timer pour retourner au wake word après inactivité
@@ -43,55 +41,6 @@ export function useVoice(
     recognitionRef.current.lang = settings.language || 'fr-FR'
     recognitionRef.current.maxAlternatives = 1
 
-    // Initialiser l'instance de reconnaissance pour les interruptions
-    interruptionRecognitionRef.current = new SpeechRecognition()
-    interruptionRecognitionRef.current.continuous = true
-    interruptionRecognitionRef.current.interimResults = true
-    interruptionRecognitionRef.current.lang = settings.language || 'fr-FR'
-
-    interruptionRecognitionRef.current.onresult = (event: any) => {
-      // Chercher le dernier résultat final
-      for (let i = event.results.length - 1; i >= 0; i--) {
-        if (event.results[i].isFinal) {
-          const transcript = event.results[i][0].transcript.trim()
-
-          // Ignorer les transcripts vides ou très courts
-          if (transcript.length < 2) continue
-
-          console.log('[Voice] Interruption détectée:', transcript)
-
-          // Réinitialiser le timer d'inactivité
-          resetInactivityTimer()
-
-          // Arrêter l'écoute d'interruption
-          stopListeningForInterruption()
-
-          // Arrêter la synthèse vocale
-          if (synthesisRef.current) {
-            synthesisRef.current.cancel()
-          }
-
-          // Traiter la parole de l'utilisateur
-          onTranscript(transcript, true)
-          setInterimTranscript('')
-          break
-        }
-      }
-    }
-
-    interruptionRecognitionRef.current.onend = () => {
-      isListeningForInterruptionRef.current = false
-      console.log('[Voice] Écoute d\'interruption terminée')
-    }
-
-    interruptionRecognitionRef.current.onerror = (event: any) => {
-      console.error('[Voice] Erreur écoute interruption:', event.error)
-      // Ne pas traiter comme une erreur fatale
-      if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        isListeningForInterruptionRef.current = false
-      }
-    }
-
     synthesisRef.current = window.speechSynthesis
 
     return () => {
@@ -102,13 +51,6 @@ export function useVoice(
           console.log('Recognition already stopped')
         }
       }
-      if (interruptionRecognitionRef.current) {
-        try {
-          interruptionRecognitionRef.current.stop()
-        } catch (e) {
-          console.log('Interruption recognition already stopped')
-        }
-      }
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current)
       }
@@ -117,7 +59,6 @@ export function useVoice(
       }
       isRecognitionActiveRef.current = false
       isPendingRestartRef.current = false
-      isListeningForInterruptionRef.current = false
     }
   }, [settings.language, onTranscript])
 
@@ -365,7 +306,7 @@ export function useVoice(
           setInterimTranscript('')
           currentTranscriptRef.current = ''
           lastResultIndex = 0
-        }, 1500) // 1.5 secondes de silence
+        }, 3000) // 3 secondes de silence pour laisser le temps de finir la phrase
       }
     }
 
@@ -531,40 +472,6 @@ export function useVoice(
     setInterimTranscript('')
   }, [])
 
-  // Démarrer l'écoute pour détecter les interruptions
-  const startListeningForInterruption = useCallback(() => {
-    if (!interruptionRecognitionRef.current || isListeningForInterruptionRef.current) {
-      return
-    }
-
-    console.log('[Voice] Démarrage écoute d\'interruption...')
-    isListeningForInterruptionRef.current = true
-
-    try {
-      interruptionRecognitionRef.current.start()
-    } catch (error) {
-      console.error('[Voice] Erreur démarrage écoute interruption:', error)
-      isListeningForInterruptionRef.current = false
-    }
-  }, [])
-
-  // Arrêter l'écoute d'interruption
-  const stopListeningForInterruption = useCallback(() => {
-    if (!interruptionRecognitionRef.current || !isListeningForInterruptionRef.current) {
-      return
-    }
-
-    console.log('[Voice] Arrêt écoute d\'interruption...')
-
-    try {
-      interruptionRecognitionRef.current.stop()
-    } catch (error) {
-      console.error('[Voice] Erreur arrêt écoute interruption:', error)
-    }
-
-    isListeningForInterruptionRef.current = false
-  }, [])
-
   // Démarrer le timer d'inactivité (retour au wake word après 30s sans activité)
   const startInactivityTimer = useCallback(() => {
     // Annuler le timer existant s'il y en a un
@@ -643,9 +550,17 @@ export function useVoice(
 
     console.log('[Voice] Speaking:', text)
 
-    // Arrêter toute parole en cours et l'écoute d'interruption éventuelle
+    // Arrêter toute parole en cours
     synthesisRef.current.cancel()
-    stopListeningForInterruption()
+
+    // Arrêter l'écoute pour éviter que l'assistant s'auto-écoute
+    if (isRecognitionActiveRef.current) {
+      try {
+        recognitionRef.current?.stop()
+      } catch (e) {
+        console.log('Could not stop recognition before speaking')
+      }
+    }
 
     setVoiceState('speaking')
 
@@ -660,19 +575,10 @@ export function useVoice(
 
     utterance.onstart = () => {
       console.log('[Voice] Speaking started')
-      // Démarrer l'écoute d'interruption après 1 seconde
-      // pour éviter de capter le début de la synthèse vocale
-      setTimeout(() => {
-        if (synthesisRef.current && synthesisRef.current.speaking) {
-          startListeningForInterruption()
-        }
-      }, 1000)
     }
 
     utterance.onend = () => {
       console.log('[Voice] Speaking ended')
-      // Arrêter l'écoute d'interruption
-      stopListeningForInterruption()
       setVoiceState('active')
 
       // Si on est en mode conversation, continuer d'écouter
@@ -691,8 +597,6 @@ export function useVoice(
 
     utterance.onerror = (e) => {
       console.log('[Voice] Speech synthesis error:', e)
-      // Arrêter l'écoute d'interruption en cas d'erreur
-      stopListeningForInterruption()
       setVoiceState('active')
 
       // Si on est en mode conversation, continuer d'écouter malgré l'erreur
@@ -710,7 +614,7 @@ export function useVoice(
     }
 
     synthesisRef.current.speak(utterance)
-  }, [settings.autoSpeak, settings.language, settings.voiceSpeed, startListeningForInterruption, stopListeningForInterruption, startConversationListening, resetInactivityTimer])
+  }, [settings.autoSpeak, settings.language, settings.voiceSpeed, startConversationListening, resetInactivityTimer])
 
   // Effets selon le mode
   useEffect(() => {
