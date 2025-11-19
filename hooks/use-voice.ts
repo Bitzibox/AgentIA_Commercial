@@ -19,6 +19,8 @@ export function useVoice(
   const isListeningForInterruptionRef = useRef<boolean>(false)
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null) // Timer pour retourner au wake word après inactivité
+  const isInConversationModeRef = useRef<boolean>(false) // Indique si on est en mode conversation (après wake word)
   const isRecognitionActiveRef = useRef<boolean>(false) // Track if recognition is currently active
   const isPendingRestartRef = useRef<boolean>(false) // Prevent multiple simultaneous restarts
   const wakeWordDetectedRef = useRef<boolean>(false) // Prevent multiple wake word detections
@@ -56,6 +58,9 @@ export function useVoice(
           if (transcript.length < 2) continue
 
           console.log('[Voice] Interruption détectée:', transcript)
+
+          // Réinitialiser le timer d'inactivité
+          resetInactivityTimer()
 
           // Arrêter l'écoute d'interruption
           stopListeningForInterruption()
@@ -266,6 +271,9 @@ export function useVoice(
   const onWakeWordDetected = useCallback(() => {
     console.log('[Voice] Activating conversation mode...')
 
+    // Activer le mode conversation
+    isInConversationModeRef.current = true
+
     // Arrêter la reconnaissance actuelle
     try {
       recognitionRef.current?.stop()
@@ -282,10 +290,28 @@ export function useVoice(
       // Attendre 500ms après la fin de la synthèse pour éviter de capter l'écho
       setTimeout(() => {
         startConversationListening()
+        // Démarrer le timer d'inactivité (appelé directement, pas via le callback)
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current)
+        }
+        console.log('[Voice] Démarrage timer d\'inactivité (30s)')
+        inactivityTimerRef.current = setTimeout(() => {
+          console.log('[Voice] Timeout d\'inactivité atteint, retour au wake word')
+          isInConversationModeRef.current = false
+          if (synthesisRef.current && settings.autoSpeak) {
+            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+              setTimeout(() => {
+                startWakeWordListening()
+              }, 500)
+            })
+          } else {
+            startWakeWordListening()
+          }
+        }, 30000)
       }, 500)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playActivationSound])
+  }, [playActivationSound, settings.autoSpeak])
 
   // Écoute de la conversation
   const startConversationListening = useCallback(() => {
@@ -299,6 +325,31 @@ export function useVoice(
 
     recognitionRef.current.onresult = (event: any) => {
       let interim = ''
+
+      // Réinitialiser le timer d'inactivité dès qu'il y a une activité
+      if (isInConversationModeRef.current && inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+        console.log('[Voice] Réinitialisation timer d\'inactivité (via onresult)')
+        inactivityTimerRef.current = setTimeout(() => {
+          console.log('[Voice] Timeout d\'inactivité atteint, retour au wake word')
+          isInConversationModeRef.current = false
+          if (synthesisRef.current && settings.autoSpeak) {
+            const utterance = new SpeechSynthesisUtterance(cleanTextForSpeech("Je me mets en veille. Dites Hey Agent pour me réveiller."))
+            utterance.lang = settings.language || 'fr-FR'
+            utterance.rate = settings.voiceSpeed || 1.0
+            utterance.pitch = 1.0
+            utterance.volume = 1.0
+            utterance.onend = () => {
+              setTimeout(() => {
+                startWakeWordListening()
+              }, 500)
+            }
+            synthesisRef.current.speak(utterance)
+          } else {
+            startWakeWordListening()
+          }
+        }, 30000)
+      }
 
       // Process only NEW final results
       for (let i = lastResultIndex; i < event.results.length; i++) {
@@ -355,8 +406,20 @@ export function useVoice(
     recognitionRef.current.onend = () => {
       console.log('[Voice] Conversation ended')
       isRecognitionActiveRef.current = false
-      // Ne pas redémarrer automatiquement en mode conversation
-      // L'utilisateur doit réactiver avec le wake word
+
+      // Si on est en mode conversation, continuer d'écouter
+      if (isInConversationModeRef.current) {
+        console.log('[Voice] Mode conversation actif, redémarrage de l\'écoute...')
+        setTimeout(() => {
+          if (isInConversationModeRef.current && !isRecognitionActiveRef.current) {
+            try {
+              recognitionRef.current?.start()
+            } catch (e) {
+              console.error('[Voice] Failed to restart conversation:', e)
+            }
+          }
+        }, 500)
+      }
     }
 
     // Start recognition only if not already active
@@ -368,7 +431,7 @@ export function useVoice(
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onTranscript])
+  }, [onTranscript, settings.autoSpeak, settings.language, settings.voiceSpeed])
 
   // Mode manuel (push to talk)
   const startManualListening = useCallback(() => {
@@ -441,6 +504,16 @@ export function useVoice(
   const stopListening = useCallback(() => {
     console.log('[Voice] Stopping listening...')
 
+    // Désactiver le mode conversation
+    isInConversationModeRef.current = false
+
+    // Arrêter le timer d'inactivité (logique inline pour éviter dépendance circulaire)
+    if (inactivityTimerRef.current) {
+      console.log('[Voice] Arrêt timer d\'inactivité')
+      clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+    }
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop()
@@ -500,6 +573,60 @@ export function useVoice(
     isListeningForInterruptionRef.current = false
   }, [])
 
+  // Démarrer le timer d'inactivité (retour au wake word après 30s sans activité)
+  const startInactivityTimer = useCallback(() => {
+    // Annuler le timer existant s'il y en a un
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+    }
+
+    console.log('[Voice] Démarrage timer d\'inactivité (30s)')
+
+    inactivityTimerRef.current = setTimeout(() => {
+      console.log('[Voice] Timeout d\'inactivité atteint, retour au wake word')
+      isInConversationModeRef.current = false
+
+      // Annoncer qu'on retourne en mode veille
+      if (synthesisRef.current && settings.autoSpeak) {
+        const utterance = new SpeechSynthesisUtterance(cleanTextForSpeech("Je me mets en veille. Dites Hey Agent pour me réveiller."))
+        utterance.lang = settings.language || 'fr-FR'
+        utterance.rate = settings.voiceSpeed || 1.0
+        utterance.pitch = 1.0
+        utterance.volume = 1.0
+        utterance.onend = () => {
+          setTimeout(() => {
+            startWakeWordListening()
+          }, 500)
+        }
+        synthesisRef.current.speak(utterance)
+      } else {
+        startWakeWordListening()
+      }
+    }, 30000) // 30 secondes
+  }, [settings.autoSpeak, settings.language, settings.voiceSpeed])
+
+  // Réinitialiser le timer d'inactivité (appelé à chaque activité de l'utilisateur)
+  const resetInactivityTimer = useCallback(() => {
+    if (isInConversationModeRef.current) {
+      console.log('[Voice] Réinitialisation timer d\'inactivité')
+      // Annuler le timer existant
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+      }
+      // Redémarrer le timer
+      startInactivityTimer()
+    }
+  }, [startInactivityTimer])
+
+  // Arrêter le timer d'inactivité
+  const stopInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      console.log('[Voice] Arrêt timer d\'inactivité')
+      clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+    }
+  }, [])
+
   // Retourner en mode wake word
   const returnToWakeWordMode = useCallback(() => {
     console.log('[Voice] Returning to wake word mode...')
@@ -555,19 +682,43 @@ export function useVoice(
       // Arrêter l'écoute d'interruption
       stopListeningForInterruption()
       setVoiceState('active')
+
+      // Si on est en mode conversation, continuer d'écouter
+      if (isInConversationModeRef.current) {
+        console.log('[Voice] Reprise de l\'écoute de conversation après réponse')
+        setTimeout(() => {
+          if (isInConversationModeRef.current) {
+            startConversationListening()
+            resetInactivityTimer()
+          }
+        }, 500)
+      }
+
       onEnd?.()
     }
 
     utterance.onerror = (e) => {
-      console.error('[Voice] Speech synthesis error:', e)
+      console.log('[Voice] Speech synthesis error:', e)
       // Arrêter l'écoute d'interruption en cas d'erreur
       stopListeningForInterruption()
       setVoiceState('active')
+
+      // Si on est en mode conversation, continuer d'écouter malgré l'erreur
+      if (isInConversationModeRef.current) {
+        console.log('[Voice] Reprise de l\'écoute malgré l\'erreur')
+        setTimeout(() => {
+          if (isInConversationModeRef.current) {
+            startConversationListening()
+            resetInactivityTimer()
+          }
+        }, 500)
+      }
+
       onEnd?.()
     }
 
     synthesisRef.current.speak(utterance)
-  }, [settings.autoSpeak, settings.language, settings.voiceSpeed, startListeningForInterruption, stopListeningForInterruption])
+  }, [settings.autoSpeak, settings.language, settings.voiceSpeed, startListeningForInterruption, stopListeningForInterruption, startConversationListening, resetInactivityTimer])
 
   // Effets selon le mode
   useEffect(() => {
