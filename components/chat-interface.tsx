@@ -102,7 +102,7 @@ export function ChatInterface({
   // Nouveaux états pour le système vocal
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
     mode: externalVoiceMode || 'disabled',
-    wakeWord: 'Hey Agent',
+    wakeWord: 'Elsi',
     conversationalMode: true,
     autoSpeak: true,
     language: 'fr-FR',
@@ -906,7 +906,7 @@ export function ChatInterface({
                   ) : (
                     <>
                       <Volume2 className="h-4 w-4" />
-                      Hey Agent
+                      Elsi
                     </>
                   )}
                 </Button>

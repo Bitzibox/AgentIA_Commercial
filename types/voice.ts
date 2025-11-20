@@ -5,7 +5,7 @@ export type VoiceState = 'idle' | 'listening-wake-word' | 'active' | 'speaking'
 
 export interface VoiceSettings {
   mode: VoiceMode
-  wakeWord: string // "hey agent", "agent", etc.
+  wakeWord: string // "elsi", "elsie", etc.
   conversationalMode: boolean
   autoSpeak: boolean // L'IA parle automatiquement ses réponses
   language: string

@@ -10,7 +10,7 @@ interface VoiceIndicatorProps {
   wakeWord?: string
 }
 
-export function VoiceIndicator({ state, interimTranscript, wakeWord = "Hey Agent" }: VoiceIndicatorProps) {
+export function VoiceIndicator({ state, interimTranscript, wakeWord = "Elsi" }: VoiceIndicatorProps) {
   if (state === 'idle') {
     return null
   }
