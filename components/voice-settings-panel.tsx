@@ -89,7 +89,7 @@ export function VoiceSettingsPanel({ settings, onChange }: VoiceSettingsPanelPro
               Il vous écoutera jusqu'à la fin de votre demande.
             </p>
             <p className="text-xs text-muted-foreground">
-              Variantes acceptées : "Elsi", "Elsie", "Elsy"
+              Variantes détectées : "Elsi", "Healthy", "Elle se"
             </p>
           </div>
         )}
