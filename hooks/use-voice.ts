@@ -23,6 +23,9 @@ export function useVoice(
   // État réel de la reconnaissance (true si recognition.start() a été appelé et onstart reçu)
   const isListeningRef = useRef<boolean>(false)
 
+  // État de la synthèse vocale (pour gérer l'interruption)
+  const isSpeakingRef = useRef<boolean>(false)
+
   // Timers
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -212,20 +215,33 @@ export function useVoice(
     lastResultIndexRef.current = 0
   }, [])
 
-  // Synthèse vocale (TTS)
-  const speak = useCallback((text: string, onEnd?: () => void) => {
+  // Synthèse vocale (TTS) avec support d'interruption
+  const speak = useCallback((text: string, onEnd?: () => void, isShortMessage: boolean = false) => {
     if (!synthesisRef.current || !settings.autoSpeak) {
       onEnd?.()
       return
     }
 
-    console.log('[Voice] Speaking:', text)
+    console.log('[Voice] Speaking:', text, `(short: ${isShortMessage})`)
 
     // Arrêter toute parole en cours
     synthesisRef.current.cancel()
 
+    // Marquer qu'on commence à parler
+    isSpeakingRef.current = true
+
+    // Sauvegarder le mode précédent AVANT de le changer
+    const previousMode = voiceModeRef.current
+    const wasInConversation = previousMode === 'conversation'
+
+    // Annuler le timer d'inactivité pendant qu'on parle
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+      console.log('[Voice] Timer d\'inactivité annulé pendant la synthèse')
+    }
+
     // Arrêter l'écoute temporairement pour éviter que l'assistant s'auto-écoute
-    const wasInConversation = voiceModeRef.current === 'conversation'
     if (isListeningRef.current) {
       voiceModeRef.current = 'disabled'
       recognitionRef.current?.stop()
@@ -244,17 +260,48 @@ export function useVoice(
 
     utterance.onstart = () => {
       console.log('[Voice] Speaking started')
+
+      // Pour les messages longs, démarrer l'écoute d'interruption APRÈS un délai de sécurité
+      if (!isShortMessage) {
+        setTimeout(() => {
+          // Double-check qu'on parle encore (pas déjà interrompu)
+          if (isSpeakingRef.current) {
+            console.log('[Voice] Starting interruption listening (wake-word mode)...')
+            startListening('wake-word')
+          }
+        }, 800) // Délai de 800ms pour éviter l'auto-capture de la voix de l'IA
+      }
     }
 
     utterance.onend = () => {
       console.log('[Voice] Speaking ended')
+      isSpeakingRef.current = false
       setVoiceState('active')
 
-      // Si on était en conversation, reprendre l'écoute
+      // Si message long ET écoute d'interruption active, l'arrêter
+      if (!isShortMessage && isListeningRef.current) {
+        console.log('[Voice] Stopping interruption listening...')
+        voiceModeRef.current = 'disabled'
+        recognitionRef.current?.stop()
+      }
+
+      // Si on était en conversation, reprendre l'écoute de conversation
       if (wasInConversation) {
         console.log('[Voice] Reprise écoute conversation après synthèse')
         setTimeout(() => {
           startListening('conversation')
+
+          // Recréer le timer d'inactivité (30s)
+          if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current)
+          }
+          inactivityTimerRef.current = setTimeout(() => {
+            console.log('[Voice] Timeout d\'inactivité, retour au wake word')
+            voiceModeRef.current = 'disabled'
+            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+              setTimeout(() => startListening('wake-word'), 500)
+            }, true) // ← Message court, pas d'interruption
+          }, 30000)
         }, 500)
       }
 
@@ -263,12 +310,31 @@ export function useVoice(
 
     utterance.onerror = (e) => {
       console.log('[Voice] Speech synthesis error:', e)
+      isSpeakingRef.current = false
       setVoiceState('active')
+
+      // Arrêter l'écoute d'interruption si active
+      if (!isShortMessage && isListeningRef.current) {
+        voiceModeRef.current = 'disabled'
+        recognitionRef.current?.stop()
+      }
 
       // Reprendre l'écoute même en cas d'erreur
       if (wasInConversation) {
         setTimeout(() => {
           startListening('conversation')
+
+          // Recréer le timer d'inactivité
+          if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current)
+          }
+          inactivityTimerRef.current = setTimeout(() => {
+            console.log('[Voice] Timeout d\'inactivité, retour au wake word')
+            voiceModeRef.current = 'disabled'
+            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+              setTimeout(() => startListening('wake-word'), 500)
+            }, true)
+          }, 30000)
         }, 500)
       }
 
@@ -294,16 +360,31 @@ export function useVoice(
 
     // Détecter "hey agent" ou "et agent"
     if (lowerTranscript.includes('hey agent') || lowerTranscript.includes('et agent')) {
-      console.log('[Voice] Wake word detected!')
+      // Vérifier si c'est une interruption (l'IA était en train de parler)
+      const isInterruption = isSpeakingRef.current
 
-      // Arrêter le mode wake-word
+      if (isInterruption) {
+        console.log('[Voice] 🎯 INTERRUPTION DÉTECTÉE ! L\'utilisateur a dit "Hey Agent" pendant que l\'IA parlait')
+        // Annuler immédiatement la synthèse en cours
+        if (synthesisRef.current) {
+          synthesisRef.current.cancel()
+          isSpeakingRef.current = false
+        }
+      } else {
+        console.log('[Voice] Wake word detected!')
+      }
+
+      // Arrêter toute écoute en cours
       voiceModeRef.current = 'disabled'
       if (isListeningRef.current) {
         recognitionRef.current?.stop()
       }
 
-      // Activer le mode conversation
+      // Activer le son
       playActivationSound()
+
+      // Répondre et activer le mode conversation
+      // IMPORTANT: isShortMessage = true pour éviter de lancer l'écoute d'interruption
       speak("Oui, je vous écoute !", () => {
         setTimeout(() => {
           startListening('conversation')
@@ -317,10 +398,10 @@ export function useVoice(
             voiceModeRef.current = 'disabled'
             speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
               setTimeout(() => startListening('wake-word'), 500)
-            })
+            }, true) // ← Message court
           }, 30000)
         }, 500)
-      })
+      }, true) // ← IMPORTANT: isShortMessage = true
     }
   }, [playActivationSound, speak, startListening])
 
@@ -342,7 +423,7 @@ export function useVoice(
         voiceModeRef.current = 'disabled'
         speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
           setTimeout(() => startListening('wake-word'), 500)
-        })
+        }, true) // ← Message court
       }, 30000)
     }
 
@@ -397,7 +478,7 @@ export function useVoice(
             voiceModeRef.current = 'disabled'
             speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
               setTimeout(() => startListening('wake-word'), 500)
-            })
+            }, true) // ← Message court
           }, 30000)
         }
       }, 2000)
