@@ -102,7 +102,7 @@ export function useVoice(
     // onresult : Traitement adapté selon le mode
     recognitionRef.current.onresult = (event: any) => {
       if (voiceModeRef.current === 'wake-word') {
-        // Mode wake-word : détection du mot-clé "hey agent"
+        // Mode wake-word : détection du mot-clé "elsi"
         handleWakeWordResultsRef.current?.(event)
       } else if (voiceModeRef.current === 'conversation') {
         // Mode conversation : accumulation du transcript
@@ -298,7 +298,7 @@ export function useVoice(
           inactivityTimerRef.current = setTimeout(() => {
             console.log('[Voice] Timeout d\'inactivité, retour au wake word')
             voiceModeRef.current = 'disabled'
-            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+            speak("Je me mets en veille. Dites Elsi pour me réveiller.", () => {
               setTimeout(() => startListening('wake-word'), 500)
             }, true) // ← Message court, pas d'interruption
           }, 30000)
@@ -331,7 +331,7 @@ export function useVoice(
           inactivityTimerRef.current = setTimeout(() => {
             console.log('[Voice] Timeout d\'inactivité, retour au wake word')
             voiceModeRef.current = 'disabled'
-            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+            speak("Je me mets en veille. Dites Elsi pour me réveiller.", () => {
               setTimeout(() => startListening('wake-word'), 500)
             }, true)
           }, 30000)
@@ -358,13 +358,16 @@ export function useVoice(
     const lowerTranscript = transcript.toLowerCase()
     console.log('[Voice] Wake word buffer:', lowerTranscript)
 
-    // Détecter "hey agent" ou "et agent"
-    if (lowerTranscript.includes('hey agent') || lowerTranscript.includes('et agent')) {
+    // Détecter "elsi" et ses variantes (elsie, elsy, elsif, etc.)
+    const wakeWordVariants = ['elsi', 'elsie', 'elsy', 'elsif', 'elzi', 'helsi']
+    const wakeWordDetected = wakeWordVariants.some(variant => lowerTranscript.includes(variant))
+
+    if (wakeWordDetected) {
       // Vérifier si c'est une interruption (l'IA était en train de parler)
       const isInterruption = isSpeakingRef.current
 
       if (isInterruption) {
-        console.log('[Voice] 🎯 INTERRUPTION DÉTECTÉE ! L\'utilisateur a dit "Hey Agent" pendant que l\'IA parlait')
+        console.log('[Voice] 🎯 INTERRUPTION DÉTECTÉE ! L\'utilisateur a dit "Elsi" pendant que l\'IA parlait')
         // Annuler immédiatement la synthèse en cours
         if (synthesisRef.current) {
           synthesisRef.current.cancel()
@@ -396,7 +399,7 @@ export function useVoice(
           inactivityTimerRef.current = setTimeout(() => {
             console.log('[Voice] Timeout d\'inactivité, retour au wake word')
             voiceModeRef.current = 'disabled'
-            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+            speak("Je me mets en veille. Dites Elsi pour me réveiller.", () => {
               setTimeout(() => startListening('wake-word'), 500)
             }, true) // ← Message court
           }, 30000)
@@ -421,7 +424,7 @@ export function useVoice(
       inactivityTimerRef.current = setTimeout(() => {
         console.log('[Voice] Timeout d\'inactivité, retour au wake word')
         voiceModeRef.current = 'disabled'
-        speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+        speak("Je me mets en veille. Dites Elsi pour me réveiller.", () => {
           setTimeout(() => startListening('wake-word'), 500)
         }, true) // ← Message court
       }, 30000)
@@ -476,7 +479,7 @@ export function useVoice(
           inactivityTimerRef.current = setTimeout(() => {
             console.log('[Voice] Timeout d\'inactivité, retour au wake word')
             voiceModeRef.current = 'disabled'
-            speak("Je me mets en veille. Dites Hey Agent pour me réveiller.", () => {
+            speak("Je me mets en veille. Dites Elsi pour me réveiller.", () => {
               setTimeout(() => startListening('wake-word'), 500)
             }, true) // ← Message court
           }, 30000)
