@@ -358,8 +358,11 @@ export function useVoice(
     const lowerTranscript = transcript.toLowerCase()
     console.log('[Voice] Wake word buffer:', lowerTranscript)
 
-    // Détecter "elsi" et ses variantes (elsie, elsy, elsif, etc.)
-    const wakeWordVariants = ['elsi', 'elsie', 'elsy', 'elsif', 'elzi', 'helsi']
+    // Détecter "elsi" et ses variantes (y compris les transcriptions erronées de Chrome)
+    const wakeWordVariants = [
+      'elsi', 'elsie', 'elsy', 'elsif', 'elzi', 'helsi',
+      'healthy', 'elle se', 'elle si', 'elles si', 'helse', 'else'
+    ]
     const wakeWordDetected = wakeWordVariants.some(variant => lowerTranscript.includes(variant))
 
     if (wakeWordDetected) {
