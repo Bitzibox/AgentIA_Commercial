@@ -128,9 +128,6 @@ export function ChatInterface({
     startManualListening,
     stopListening,
     speak,
-    startConversationListening,
-    returnToWakeWordMode,
-    startWakeWordListening, // Ajouter startWakeWordListening
   } = useVoice(
     (transcript, isFinal) => {
       if (isFinal) {
@@ -865,13 +862,8 @@ export function ChatInterface({
     }
 
     if (mode === 'automatic') {
-      // Arrêter d'abord toute reconnaissance en cours
-      stopListening()
-      // Attendre que le stop soit complété avant de démarrer
-      setTimeout(() => {
-        startConversation()
-        startWakeWordListening() // Démarrer l'écoute du wake word, pas la conversation
-      }, 300)
+      // Le hook useVoice gérera automatiquement le démarrage du wake word
+      startConversation()
     } else if (mode === 'manual') {
       // Manuel : pas de wake word, on attend que l'utilisateur clique
       stopListening()
