@@ -309,13 +309,20 @@ export function useVoice(
       // IMPORTANT : Ne recréer le timer QUE si on a reçu un résultat FINAL
       // Les résultats intermédiaires ne doivent PAS réinitialiser le timer
       if (hasFinalResult && currentTranscriptRef.current.trim()) {
-        // Annuler le timer existant
+        // Annuler le timer de silence existant
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current)
           silenceTimerRef.current = null
         }
 
-        // Créer un nouveau timer
+        // IMPORTANT : Annuler le timer d'inactivité car on attend le timer de silence
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current)
+          inactivityTimerRef.current = null
+          console.log('[Voice] Timer d\'inactivité annulé, en attente du timer de silence')
+        }
+
+        // Créer un nouveau timer de silence
         console.log('[Voice] Nouveau résultat final, redémarrage timer de silence 2s')
         silenceTimerRef.current = setTimeout(() => {
           const textToSend = currentTranscriptRef.current.trim()
@@ -331,6 +338,31 @@ export function useVoice(
             setTimeout(() => {
               if (isInConversationModeRef.current && !isRecognitionActiveRef.current) {
                 startConversationListening()
+
+                // Recréer le timer d'inactivité
+                if (inactivityTimerRef.current) {
+                  clearTimeout(inactivityTimerRef.current)
+                }
+                console.log('[Voice] Redémarrage timer d\'inactivité (30s)')
+                inactivityTimerRef.current = setTimeout(() => {
+                  console.log('[Voice] Timeout d\'inactivité atteint, retour au wake word')
+                  isInConversationModeRef.current = false
+                  if (synthesisRef.current && settings.autoSpeak) {
+                    const utterance = new SpeechSynthesisUtterance(cleanTextForSpeech("Je me mets en veille. Dites Hey Agent pour me réveiller."))
+                    utterance.lang = settings.language || 'fr-FR'
+                    utterance.rate = settings.voiceSpeed || 1.0
+                    utterance.pitch = 1.0
+                    utterance.volume = 1.0
+                    utterance.onend = () => {
+                      setTimeout(() => {
+                        startWakeWordListening()
+                      }, 500)
+                    }
+                    synthesisRef.current.speak(utterance)
+                  } else {
+                    startWakeWordListening()
+                  }
+                }, 30000)
               }
             }, 500)
           }
