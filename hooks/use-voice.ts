@@ -273,7 +273,7 @@ export function useVoice(
             console.log('[Voice] Starting interruption listening (wake-word mode)...')
             startListening('wake-word')
           }
-        }, 800) // Délai de 800ms pour éviter l'auto-capture de la voix de l'IA
+        }, 1500) // Délai de 1500ms pour éviter l'auto-capture de la voix de l'IA
       }
     }
 
