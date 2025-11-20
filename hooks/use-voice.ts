@@ -30,6 +30,7 @@ export function useVoice(
   // Timers
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const interruptionIntervalRef = useRef<NodeJS.Timeout | null>(null) // Boucle de redémarrage pour l'interruption
 
   // Données de transcription
   const currentTranscriptRef = useRef<string>('') // Transcript accumulé
@@ -264,17 +265,36 @@ export function useVoice(
 
     utterance.onstart = () => {
       console.log('[Voice] Speaking started')
+      isSpeakingRef.current = true
 
-      // Pour les messages longs, démarrer l'écoute d'interruption APRÈS un délai de sécurité
-      if (!isShortMessage) {
-        setTimeout(() => {
-          // Double-check qu'on parle encore (pas déjà interrompu)
-          if (isSpeakingRef.current) {
-            console.log('[Voice] Starting interruption listening (wake-word mode)...')
+      if (isShortMessage) return // Pas de boucle pour les messages courts
+
+      // Nettoyer toute boucle précédente (sécurité)
+      if (interruptionIntervalRef.current) {
+        clearInterval(interruptionIntervalRef.current)
+      }
+
+      // Démarrer la boucle de redémarrage (toutes les 3 secondes)
+      interruptionIntervalRef.current = setInterval(() => {
+        // Vérifier si l'IA parle toujours
+        if (isSpeakingRef.current) {
+          if (isListeningRef.current) {
+            // Si on écoute déjà, on redémarre pour vider le buffer
+            console.log('[Voice] (Loop) Clearing interruption buffer (restart)...')
+            recognitionRef.current?.stop() // onend va redémarrer
+          } else {
+            // Si on n'écoute pas (1er tour), on démarre
+            console.log('[Voice] (Loop) Starting interruption listening...')
             startListening('wake-word')
           }
-        }, 1500) // Délai de 1500ms pour éviter l'auto-capture de la voix de l'IA
-      }
+        } else {
+          // L'IA a fini de parler, on tue la boucle
+          if (interruptionIntervalRef.current) {
+            clearInterval(interruptionIntervalRef.current)
+            interruptionIntervalRef.current = null
+          }
+        }
+      }, 3000) // Redémarre l'écoute toutes les 3 secondes
     }
 
     utterance.onend = () => {
@@ -285,6 +305,12 @@ export function useVoice(
         console.log('[Voice] Interruption gérée, onend de la parole longue ignoré.')
         isSpeakingRef.current = false // Juste nettoyer l'état
         return
+      }
+
+      // Nettoyer la boucle d'interruption
+      if (interruptionIntervalRef.current) {
+        clearInterval(interruptionIntervalRef.current)
+        interruptionIntervalRef.current = null
       }
 
       isSpeakingRef.current = false
@@ -394,6 +420,12 @@ export function useVoice(
 
         // LEVER LE DRAPEAU pour que le onend/onerror de la parole interrompue s'ignore
         interruptionOccurredRef.current = true
+
+        // Nettoyer la boucle d'interruption
+        if (interruptionIntervalRef.current) {
+          clearInterval(interruptionIntervalRef.current)
+          interruptionIntervalRef.current = null
+        }
 
         // Annuler immédiatement la synthèse en cours
         if (synthesisRef.current) {
