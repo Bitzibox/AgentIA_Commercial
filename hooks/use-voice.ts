@@ -25,6 +25,7 @@ export function useVoice(
 
   // État de la synthèse vocale (pour gérer l'interruption)
   const isSpeakingRef = useRef<boolean>(false)
+  const interruptionOccurredRef = useRef<boolean>(false) // Flag pour éviter race condition
 
   // Timers
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -224,6 +225,9 @@ export function useVoice(
 
     console.log('[Voice] Speaking:', text, `(short: ${isShortMessage})`)
 
+    // Réinitialiser le flag d'interruption pour cette nouvelle parole
+    interruptionOccurredRef.current = false
+
     // Arrêter toute parole en cours
     synthesisRef.current.cancel()
 
@@ -275,6 +279,14 @@ export function useVoice(
 
     utterance.onend = () => {
       console.log('[Voice] Speaking ended')
+
+      // Garde : Si une interruption s'est produite, ignorer ce onend
+      if (interruptionOccurredRef.current) {
+        console.log('[Voice] Interruption gérée, onend de la parole longue ignoré.')
+        isSpeakingRef.current = false // Juste nettoyer l'état
+        return
+      }
+
       isSpeakingRef.current = false
       setVoiceState('active')
 
@@ -310,6 +322,14 @@ export function useVoice(
 
     utterance.onerror = (e) => {
       console.log('[Voice] Speech synthesis error:', e)
+
+      // Garde : Si une interruption s'est produite, ignorer ce onerror
+      if (interruptionOccurredRef.current) {
+        console.log('[Voice] Interruption gérée, onerror de la parole longue ignoré.')
+        isSpeakingRef.current = false // Juste nettoyer l'état
+        return
+      }
+
       isSpeakingRef.current = false
       setVoiceState('active')
 
@@ -371,6 +391,10 @@ export function useVoice(
 
       if (isInterruption) {
         console.log('[Voice] 🎯 INTERRUPTION DÉTECTÉE ! L\'utilisateur a dit "Elsi" pendant que l\'IA parlait')
+
+        // LEVER LE DRAPEAU pour que le onend/onerror de la parole interrompue s'ignore
+        interruptionOccurredRef.current = true
+
         // Annuler immédiatement la synthèse en cours
         if (synthesisRef.current) {
           synthesisRef.current.cancel()
