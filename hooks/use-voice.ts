@@ -316,7 +316,7 @@ export function useVoice(
         }
 
         // Créer un nouveau timer
-        console.log('[Voice] Nouveau résultat final, redémarrage timer de silence 3s')
+        console.log('[Voice] Nouveau résultat final, redémarrage timer de silence 2s')
         silenceTimerRef.current = setTimeout(() => {
           const textToSend = currentTranscriptRef.current.trim()
           console.log('[Voice] Silence detected, sending final transcript:', textToSend)
@@ -324,7 +324,17 @@ export function useVoice(
           setInterimTranscript('')
           currentTranscriptRef.current = ''
           lastResultIndexRef.current = 0
-        }, 3000) // 3 secondes de silence pour laisser le temps de finir la phrase
+
+          // Redémarrer l'écoute après l'envoi
+          if (isInConversationModeRef.current) {
+            console.log('[Voice] Redémarrage écoute après envoi transcript')
+            setTimeout(() => {
+              if (isInConversationModeRef.current && !isRecognitionActiveRef.current) {
+                startConversationListening()
+              }
+            }, 500)
+          }
+        }, 2000) // 2 secondes de silence (plus court que le timeout Chrome de ~2.5s)
       }
     }
 
@@ -346,20 +356,34 @@ export function useVoice(
       console.log('[Voice] Conversation ended - Chrome stopped listening')
       isRecognitionActiveRef.current = false
 
-      // NE PAS annuler le timer de silence - il continue de tourner
-      // NE PAS envoyer le transcript - laisser le timer décider
-      // Le transcript reste dans currentTranscriptRef et continue d'accumuler
+      // Si on a un timer actif, le laisser gérer l'envoi et le redémarrage
+      if (silenceTimerRef.current) {
+        console.log('[Voice] Timer de silence actif, attente du déclenchement...')
+        return // Le timer s'occupera de tout
+      }
 
-      // Si on est en mode conversation, redémarrer l'écoute immédiatement
-      if (isInConversationModeRef.current) {
-        console.log('[Voice] Mode conversation actif, redémarrage immédiat de l\'écoute...')
+      // Si pas de timer et pas de contenu, redémarrer immédiatement
+      if (isInConversationModeRef.current && !currentTranscriptRef.current.trim()) {
+        console.log('[Voice] Pas de contenu, redémarrage immédiat...')
         setTimeout(() => {
           if (isInConversationModeRef.current && !isRecognitionActiveRef.current) {
-            // Rappeler startConversationListening pour redéfinir les handlers
-            // Le transcript continue d'accumuler dans currentTranscriptRef
             startConversationListening()
           }
-        }, 100) // Redémarrage très rapide pour ne pas perdre de parole
+        }, 100)
+      }
+      // Si on a du contenu mais pas de timer, c'est anormal, on envoie quand même
+      else if (isInConversationModeRef.current && currentTranscriptRef.current.trim()) {
+        console.log('[Voice] Contenu sans timer, envoi immédiat...')
+        const textToSend = currentTranscriptRef.current.trim()
+        onTranscript(textToSend, true)
+        setInterimTranscript('')
+        currentTranscriptRef.current = ''
+        lastResultIndexRef.current = 0
+        setTimeout(() => {
+          if (isInConversationModeRef.current && !isRecognitionActiveRef.current) {
+            startConversationListening()
+          }
+        }, 500)
       }
     }
 
