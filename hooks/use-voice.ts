@@ -31,6 +31,7 @@ export function useVoice(
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
   const interruptionIntervalRef = useRef<NodeJS.Timeout | null>(null) // Boucle de redémarrage pour l'interruption
+  const lastWakeWordDetectionTime = useRef<number>(0) // Timestamp de la dernière détection de "elsi"
 
   // Données de transcription
   const currentTranscriptRef = useRef<string>('') // Transcript accumulé
@@ -278,6 +279,14 @@ export function useVoice(
       interruptionIntervalRef.current = setInterval(() => {
         // Vérifier si l'IA parle toujours
         if (isSpeakingRef.current) {
+          // ⚠️ DÉLAI DE GRÂCE : Ne pas redémarrer si "elsi" a été détecté il y a moins de 2 secondes
+          // Cela évite d'annuler une détection en cours de traitement
+          const timeSinceLastDetection = Date.now() - lastWakeWordDetectionTime.current
+          if (timeSinceLastDetection < 2000) {
+            console.log('[Voice] (Loop) Skipping restart - wake word detected recently (' + timeSinceLastDetection + 'ms ago)')
+            return // Sauter ce redémarrage
+          }
+
           if (isListeningRef.current) {
             // Si on écoute déjà, on redémarre pour vider le buffer
             console.log('[Voice] (Loop) Clearing interruption buffer (restart)...')
@@ -412,6 +421,9 @@ export function useVoice(
     const wakeWordDetected = wakeWordVariants.some(variant => lowerTranscript.includes(variant))
 
     if (wakeWordDetected) {
+      // ⏰ Enregistrer le timestamp de cette détection (pour le délai de grâce dans la boucle)
+      lastWakeWordDetectionTime.current = Date.now()
+
       // Vérifier si c'est une interruption (l'IA était en train de parler)
       const isInterruption = isSpeakingRef.current
 
